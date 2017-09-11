@@ -8,6 +8,7 @@ import sys
 import os
 import getopt
 import time
+import pprint
 
 def main(mainargs):
     global verbose, quiet, domain, starturl, log, extended, secured
@@ -87,10 +88,13 @@ def parse(domain,starturl):
     chain(domain,starturl)
     log.close()
 
-def chain(domain,url):
+def chain(domain,url,ref = ""):
     global verbose, quiet, log, homeurl, visited, extended
 
     urlu = url
+
+    if not url:
+        return
 
     m = re.match('^/([^/].*)', url)
     if m:
@@ -104,31 +108,37 @@ def chain(domain,url):
     if m and not extended:
         url = m.group(1) + "://" + m.group(2) + "/" + m.group(3)
 
-    if re.search('\.(jpg|png|pdf)', url):
-        msg = "SKIP" + "\t"*4 + url
-        print(msg)
-        log(msg)
-        return
-
     if url not in visited:
         visited.append(url)
         if re.search('^(http|https)://([^/]+\.)?' + domain + "/", url):
+
+            if re.search('\.(jpg|png|pdf|jpeg)', url):
+                visited.append(url)
+                msg = "SKIP" + "\t"*4 + url
+                print(msg)
+                logstr(msg)
+                return
+
             try:
                 html_page = urlopen(Request(url, headers={'User-Agent': 'HadornBot/1.0'}))
-                # html_page = urllib.request.urlopen(url)
+
                 if html_page.getcode() == 200:
                     msg = 'OK' + "\t"*4 + url
                 else:
                     msg = "Status " + str(html_page.getcode()) + "\t"*4 + url
+
                 print(msg)
                 logstr(msg)
+
                 soup = BeautifulSoup(html_page,'html.parser')
                 for link in soup.findAll("a"):
-                    chain(domain,link.get('href'))         
+                    chain(domain,link.get('href'),url)
+
             except Exception as e:
-                msg = str(e) + "\t"*1 + url
+                # pprint.pprint(e)
+                msg = str(e) + "\t"*1 + url + "\t (Ref: " + ref + ")"
                 print(msg)
-                log.write(msg + "\n")
+                logstr(msg)
 
 def logstr(msg):
     global log
