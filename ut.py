@@ -114,21 +114,25 @@ def chain(domain,url,ref = ""):
 
             if re.search('\.(jpg|png|pdf|jpeg)', url):
                 visited.append(url)
-                msg = "SKIP" + "\t"*4 + url
-                print(msg)
-                logstr(msg)
+                if verbose:
+                	msg = "SKIP" + "\t"*4 + url
+	                print(msg)
+                	logstr(msg)
                 return
 
             try:
                 html_page = urlopen(Request(url, headers={'User-Agent': 'HadornBot/1.0'}))
 
                 if html_page.getcode() == 200:
-                    msg = 'OK' + "\t"*4 + url
+                	if not quiet:
+	                    msg = 'OK' + "\t"*4 + url
+		                print(msg)
+		                logstr(msg)
                 else:
                     msg = "Status " + str(html_page.getcode()) + "\t"*4 + url
+	                print(msg)
+	                logstr(msg)
 
-                print(msg)
-                logstr(msg)
 
                 soup = BeautifulSoup(html_page,'html.parser')
                 for link in soup.findAll("a"):
