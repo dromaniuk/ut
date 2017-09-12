@@ -11,7 +11,7 @@ import time
 import pprint
 
 def main(mainargs):
-	global verbose, quiet, domain, starturl, log, extended, secured
+	global verbose, quiet, domain, starturl, log, extended, secured, successful, skipped, errored, warned
 
 	verbose = False
 	quiet = False
@@ -46,6 +46,13 @@ def main(mainargs):
 		for d in args:
 			parse(d,starturl)
 	except KeyboardInterrupt:
+		logstr()
+		logstr("Operation Aborted")
+		logstr("Success:\t" + str(successful))
+		logstr("Warning:\t" + str(warned))
+		logstr("Skipped:\t" + str(skipped))
+		logstr("Errored:\t" + str(errored))
+		logstr()
 		pass
 	except SystemExit:
 		pass
