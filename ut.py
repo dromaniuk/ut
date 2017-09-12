@@ -53,7 +53,7 @@ def main(mainargs):
         print(e)
 
 def parse(domain,starturl):
-    global verbose, quiet, log, homeurl, visited, secured
+    global verbose, quiet, log, homeurl, visited, secured, successful, skipped, errored
 
     home = str(Path.home())
     workdir = home + "/.ut/"
@@ -83,13 +83,22 @@ def parse(domain,starturl):
         starturl = homeurl
 
     visited = []
+    successful = 0
+    skipped = 0
+    errored = 0
 
     log = open(datedir + time.strftime("%H-%M-%S") + ".log","w")
+    logstr("Domain: " + domain)
+    logstr()
     chain(domain,starturl)
+    logstr()
+    logstr("Success:\t" + str(successful))
+    logstr("Skipped:\t" + str(skipped))
+    logstr("Errored:\t" + str(errored))
     log.close()
 
 def chain(domain,url,ref = ""):
-    global verbose, quiet, log, homeurl, visited, extended
+    global verbose, quiet, homeurl, visited, extended, successful, skipped, errored
 
     urlu = url
 
@@ -112,12 +121,10 @@ def chain(domain,url,ref = ""):
         visited.append(url)
         if re.search('^(http|https)://([^/]+\.)?' + domain + "/", url):
 
-            if re.search('\.(jpg|png|pdf|jpeg)', url):
+            if re.search('\.(jpg|png|pdf|jpeg|mp3)', url):
                 visited.append(url)
                 if verbose:
-                	msg = "SKIP" + "\t"*4 + url
-	                print(msg)
-                	logstr(msg)
+                	logstr("SKIP" + "\t"*4 + url)
                 return
 
             try:
@@ -125,14 +132,9 @@ def chain(domain,url,ref = ""):
 
                 if html_page.getcode() == 200:
                 	if not quiet:
-	                    msg = 'OK' + "\t"*4 + url
-		                print(msg)
-		                logstr(msg)
+		                logstr("OK" + "\t"*4 + url)
                 else:
-                    msg = "Status " + str(html_page.getcode()) + "\t"*4 + url
-	                print(msg)
-	                logstr(msg)
-
+                    logstr("Status " + str(html_page.getcode()) + "\t"*4 + url)
 
                 soup = BeautifulSoup(html_page,'html.parser')
                 for link in soup.findAll("a"):
@@ -140,12 +142,11 @@ def chain(domain,url,ref = ""):
 
             except Exception as e:
                 # pprint.pprint(e)
-                msg = str(e) + "\t"*1 + url + "\t (Ref: " + ref + ")"
-                print(msg)
-                logstr(msg)
+                logstr(str(e) + "\t"*1 + url + "\t (Ref: " + ref + ")")
 
-def logstr(msg):
+def logstr(msg=""):
     global log
+    print(msg)
     log.write(msg + "\n")
 
 if __name__ == "__main__":
