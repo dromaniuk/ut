@@ -130,7 +130,7 @@ def chain(domain,url,ref = ""):
 		visited.append(url)
 		if re.search('^(http|https)://([^/]+\.)?' + domain + "/", url):
 
-			if re.search('\.(jpg|png|pdf|jpeg|mp3|gif)', url):
+			if re.search('\.(jpg|png|pdf|jpeg|mp3|gif|eps)', url):
 				visited.append(url)
 				logstr("SKIP" + "\t"*4 + url, verbose)
 				skipped += 1
