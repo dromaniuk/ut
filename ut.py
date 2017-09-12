@@ -1,7 +1,6 @@
-#!/usr/bin/python3.5
+#!/usr/bin/python3
 
 from bs4 import BeautifulSoup
-from pathlib import Path
 from urllib.request import urlopen, Request
 import re
 import sys
@@ -56,13 +55,13 @@ def main(mainargs):
 		pass
 	except SystemExit:
 		pass
-	except e:
+	except Exception as e:
 		print(e)
 
 def parse(domain,starturl):
 	global verbose, quiet, log, homeurl, visited, secured, successful, skipped, errored, warned
 
-	home = str(Path.home())
+	home = str(os.path.expanduser("~"))
 	workdir = home + "/.ut/"
 	try:
 		os.stat(workdir)
