@@ -150,10 +150,10 @@ def chain(domain,url,ref = ""):
 				html_page = html.read()
 				html_code = html.getcode()
 
-				dbc.execute("SELECT * FROM pages WHERE url like ?", [(url)])
-				old_html = dbc.fetchone()
-				if old_html:
-					print(old_html)
+				# dbc.execute("SELECT * FROM pages WHERE url like ?", [(url)])
+				# old_html = dbc.fetchone()
+				# if old_html:
+				# 	print(old_html)
 				# old_html_page = old_html[1]
 
 				dbc.execute("DELETE FROM pages WHERE url like ?", [(url)])
