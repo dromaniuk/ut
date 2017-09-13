@@ -2,7 +2,7 @@
 
 from bs4 import BeautifulSoup
 from urllib.request import urlopen, Request
-import re, sys, os, getopt, time, pprint, sqlite3, datetime, zlib, base64, traceback
+import re, sys, os, getopt, time, pprint, sqlite3, datetime, zlib, base64, traceback, difflib
 
 def main(mainargs):
 	global verbose, quiet, domain, starturl, log, extended, secured, successful, skipped, errored, warned
@@ -150,11 +150,10 @@ def chain(domain,url,ref = ""):
 				html_page = html.read()
 				html_code = html.getcode()
 
-				# dbc.execute("SELECT * FROM pages WHERE url like ?", [(url)])
-				# old_html = dbc.fetchone()
-				# if old_html:
-				# 	print(old_html)
-				# old_html_page = old_html[1]
+				dbc.execute("SELECT * FROM pages WHERE url like ?", [(url)])
+				old_html = dbc.fetchone()
+				if old_html:
+					old_html_page = zlib.decompress(base64.b64decode(old_html[1]))
 
 				dbc.execute("DELETE FROM pages WHERE url like ?", [(url)])
 
@@ -167,6 +166,10 @@ def chain(domain,url,ref = ""):
 				else:
 					logstr("Status " + str(html_code) + "\t" + url)
 					warned += 1
+
+				# if old_html:
+				# 	delta = htmldiff( old_html_page.decode("utf-8"), html_page.decode("utf-8") )
+					
 
 				soup = BeautifulSoup(html_page,'html.parser')
 				for link in soup.findAll("a"):
@@ -182,6 +185,14 @@ def logstr(msg="",display_it = True):
 	if display_it:
 		print(msg)
 	log.write(msg + "\n")
+
+def htmldiff(expected, actual):
+    expected = expected.splitlines(1)
+    actual = actual.splitlines(1)
+
+    diff = difflib.unified_diff(expected, actual)
+
+    return ''.join(diff)
 
 if __name__ == "__main__":
 	main(sys.argv[1:])
