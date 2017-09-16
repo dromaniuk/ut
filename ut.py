@@ -19,7 +19,7 @@ class UT(object):
 
 	def read_params(self,mainargs):
 		try:
-			opts, args = getopt.getopt(mainargs, "hvqd:u:es", ["--help","--verbose","--quiet","--domain","--start-url","--extended","--secured","--diff"])
+			opts, args = getopt.getopt(mainargs, "hvqe", ["--help","--verbose","--quiet","--secured","--diff"])
 		except getopt.GetoptError as err:
 			print(err)
 			sys.exit(2)
@@ -33,9 +33,9 @@ class UT(object):
 				self.verbose = True
 			elif o in ("-q", "--quiet"):
 				self.quiet = True
-			elif o in ("-e", "--extended"):
+			elif o in ("-e"):
 				self.extended = True
-			elif o in ("-s", "--secured"):
+			elif o in ("--secured"):
 				self.secured = True
 
 			elif o in ("--diff"):
@@ -55,6 +55,13 @@ class UT(object):
 				self.url = args[0]
 		else:
 			assert False, "unhandled action"
+
+		global workdir
+		workdir = str(os.path.expanduser("~")) + "/.ut/"
+		try:
+			os.stat(workdir)
+		except:
+			os.mkdir(workdir)
 
 	def __init__(self, mainargs):
 		try:
@@ -77,25 +84,22 @@ class UT(object):
 			print(msg)
 		self.logfile.write(msg + "\n")
 
-	def scan(self):
-		home = str(os.path.expanduser("~"))
-		workdir = home + "/.ut/"
+	def suredir(self,directory):
 		try:
-			os.stat(workdir)
+			os.stat(directory)
 		except:
-			os.mkdir(workdir)
+			os.mkdir(directory)	   
+
+	def scan(self):
+		global workdir, cachedir, domaindir
 
 		domaindir = workdir + self.domain + "/"
-		try:
-			os.stat(domaindir)
-		except:
-			os.mkdir(domaindir)	   
+		self.suredir(domaindir)
 
-		datedir = domaindir + time.strftime("%Y-%m-%d") + "/"
-		try:
-			os.stat(datedir)
-		except:
-			os.mkdir(datedir)	   
+		cachedir = workdir + self.domain + "/cache/"
+		self.suredir(cachedir)
+
+		self.datesuffix = base64.b64encode(time.strftime("%Y-%m-%d %H:%M:%S").encode("ascii"))
 
 		if self.secured:
 			self.homeurl = "https://" + self.domain + "/"
@@ -111,12 +115,12 @@ class UT(object):
 		self.errored = 0
 		self.warned = 0
 
-		self.logfile = open(datedir + time.strftime("%H-%M-%S") + ".log","w")
-		self.log("Domain: " + domain)
+		self.logfile = open(domaindir + time.strftime("%Y%m%d%H%M%S") + ".log","w")
+		self.log("Domain: " + self.domain)
 		self.log()
 
 		try:
-			self.chain(domain,self.starturl)
+			self.chain(self.starturl)
 		except KeyboardInterrupt:
 			self.log()
 			self.log("Operation Aborted")
@@ -124,19 +128,14 @@ class UT(object):
 			raise
 		finally:
 			self.log()
-			self.log("Success:\t" + str(successful))
-			self.log("Warning:\t" + str(warned))
-			self.log("Skipped:\t" + str(skipped))
-			self.log("Errored:\t" + str(errored))
+			self.log("Success:\t" + str(self.successful))
+			self.log("Warning:\t" + str(self.warned))
+			self.log("Skipped:\t" + str(self.skipped))
+			self.log("Errored:\t" + str(self.errored))
 
-		self.log()
-		self.log("Success:\t" + str(self.successful))
-		self.log("Warning:\t" + str(self.warned))
-		self.log("Skipped:\t" + str(self.skipped))
-		self.log("Errored:\t" + str(self.errored))
-		self.logfile.close()
+	def chain(self,url,ref = ""):
+		import http.client
 
-	def chain(self,domain,url,ref = ""):
 		urlu = url
 
 		if not url:
@@ -156,11 +155,11 @@ class UT(object):
 
 		if url not in self.visited:
 			self.visited.append(url)
-			if re.search('^(http|https)://([^/]+\.)?' + domain + "/", url):
+			if re.search('^(http|https)://([^/]+\.)?' + self.domain + "/", url):
 
 				if re.search('\.(jpg|png|pdf|jpeg|mp3|gif|eps)', url):
 					self.visited.append(url)
-					self.log("SKIP" + "\t" + url, verbose)
+					self.log("SKIP" + "\t" + url + "\t(Ref: " + ref + ")", self.verbose)
 					self.skipped += 1
 					return
 
@@ -170,7 +169,7 @@ class UT(object):
 					html_code = html.getcode()
 	 
 					if html_code == 200:
-						self.log("OK" + "\t" + url, not self.quiet)
+						self.log("OK" + "\t" + url + "\t(Ref: " + ref + ")", not self.quiet)
 						self.successful += 1
 					else:
 						self.log("Status " + str(html_code) + "\t" + url)
@@ -178,7 +177,7 @@ class UT(object):
 
 					soup = BeautifulSoup(html_page,'html.parser')
 					for link in soup.findAll("a"):
-						self.chain(domain,link.get('href'),url)
+						self.chain(link.get('href'),url)
 
 				except Exception as e:
 					raise e
