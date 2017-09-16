@@ -2,7 +2,7 @@
 
 from bs4 import BeautifulSoup
 from urllib.request import urlopen, Request
-import re, sys, os, getopt, time, pprint, sqlite3, datetime, zlib, base64, traceback
+import re, sys, os, getopt, time, pprint, datetime, base64
 
 def main(mainargs):
 	global verbose, quiet, domain, starturl, log, extended, secured, successful, skipped, errored, warned
@@ -90,15 +90,6 @@ def parse(domain,starturl):
 	errored = 0
 	warned = 0
 
-	dbfile = domaindir + "data.db"
-	if not os.path.isfile(dbfile):
-		db = sqlite3.connect(dbfile)
-		dbc = db.cursor()
-		dbc.execute('''CREATE TABLE pages (url tinytext, html mediumtext, chronopoint timestamp, code int)''')
-	else:
-		db = sqlite3.connect(dbfile)
-		dbc = db.cursor()
-
 	log = open(datedir + time.strftime("%H-%M-%S") + ".log","w")
 	logstr("Domain: " + domain)
 	logstr()
@@ -112,11 +103,8 @@ def parse(domain,starturl):
 	logstr("Errored:\t" + str(errored))
 	log.close()
 
-	db.commit()
-	db.close()
-
 def chain(domain,url,ref = ""):
-	global verbose, quiet, homeurl, visited, extended, successful, skipped, errored, warned, db, dbc
+	global verbose, quiet, homeurl, visited, extended, successful, skipped, errored, warned
 
 	urlu = url
 
@@ -149,18 +137,7 @@ def chain(domain,url,ref = ""):
 				html = urlopen(Request(url, headers={'User-Agent': 'HadornBot/1.0'}))
 				html_page = html.read()
 				html_code = html.getcode()
-
-				# dbc.execute("SELECT * FROM pages WHERE url like ?", [(url)])
-				# old_html = dbc.fetchone()
-				# if old_html:
-				# 	print(old_html)
-				# old_html_page = old_html[1]
-
-				dbc.execute("DELETE FROM pages WHERE url like ?", [(url)])
-
-				dbc.executemany( "INSERT INTO pages VALUES (?, ?, ?, ?)", [(url, base64.b64encode(zlib.compress(html_page,9)), datetime.datetime.now(), html_code)] )
-				db.commit()
-
+ 
 				if html_code == 200:
 					logstr("OK" + "\t" + url, not quiet)
 					successful += 1
