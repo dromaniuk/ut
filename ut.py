@@ -14,16 +14,22 @@ class UT(object):
 	starturl = None
 	secured = False
 	logfile = None
+	domain = ''
+	action = 'scan'
 
-	def __init__(self, mainargs):
+	def read_params(self,mainargs):
 		try:
-			opts, args = getopt.getopt(mainargs, "hvqd:u:es", ["--help","--verbose","--quiet","--domain","--start-url","--extended","--secured"])
+			opts, args = getopt.getopt(mainargs, "hvqd:u:es", ["--help","--verbose","--quiet","--domain","--start-url","--extended","--secured","--diff"])
 		except getopt.GetoptError as err:
 			print(err)
 			sys.exit(2)
 
 		for o, a in opts:
-			if o in ("-v", "--verbose"):
+			if o in ("-h", "--help"):
+				print("Help text coming soon")
+				sys.exit()
+
+			elif o in ("-v", "--verbose"):
 				self.verbose = True
 			elif o in ("-q", "--quiet"):
 				self.quiet = True
@@ -31,25 +37,35 @@ class UT(object):
 				self.extended = True
 			elif o in ("-s", "--secured"):
 				self.secured = True
-			elif o in ("-h", "--help"):
-				print("Help text coming soon")
-				sys.exit()
-			elif o in ("-u", "--start-url"):
-				self.starturl = a
+
+			elif o in ("--diff"):
+				self.action = "diff"
 			else:
 				assert False, "unhandled option"
+
+		if self.action == "scan":
+			if len(args) > 0:
+				self.domain = args[0]
+				if len(args) > 1:
+					self.starturl = args[1]
+			else:
+				assert False, "wrong input parameters"
+		elif self.action == "diff":
+			if len(args) > 0:
+				self.url = args[0]
+		else:
+			assert False, "unhandled action"
+
+	def __init__(self, mainargs):
 		try:
-			for d in args:
-				self.parse(d,self.starturl)
-		except KeyboardInterrupt:
-			self.log()
-			self.log("Operation Aborted")
-			self.log("Success:\t" + str(successful))
-			self.log("Warning:\t" + str(warned))
-			self.log("Skipped:\t" + str(skipped))
-			self.log("Errored:\t" + str(errored))
-			self.log()
-			pass
+			self.read_params(mainargs)
+
+			if self.action == "scan":
+				self.scan()
+			elif self.action == "diff":
+				self.diff()
+			else:
+				assert False, "unhandled action"
 		except SystemExit:
 			pass
 		except Exception as e:
@@ -61,15 +77,15 @@ class UT(object):
 			print(msg)
 		self.logfile.write(msg + "\n")
 
-	def parse(self,domain,starturl):
+	def scan(self):
 		home = str(os.path.expanduser("~"))
 		workdir = home + "/.ut/"
 		try:
 			os.stat(workdir)
 		except:
-			os.mkdir(workdir)	   
+			os.mkdir(workdir)
 
-		domaindir = workdir + domain + "/"
+		domaindir = workdir + self.domain + "/"
 		try:
 			os.stat(domaindir)
 		except:
@@ -82,9 +98,9 @@ class UT(object):
 			os.mkdir(datedir)	   
 
 		if self.secured:
-			self.homeurl = "https://" + domain + "/"
+			self.homeurl = "https://" + self.domain + "/"
 		else:
-			self.homeurl = "http://" + domain + "/"
+			self.homeurl = "http://" + self.domain + "/"
 
 		if self.starturl is None:
 			self.starturl = self.homeurl
@@ -99,7 +115,19 @@ class UT(object):
 		self.log("Domain: " + domain)
 		self.log()
 
-		self.chain(domain,self.starturl)
+		try:
+			self.chain(domain,self.starturl)
+		except KeyboardInterrupt:
+			self.log()
+			self.log("Operation Aborted")
+		except:
+			raise
+		finally:
+			self.log()
+			self.log("Success:\t" + str(successful))
+			self.log("Warning:\t" + str(warned))
+			self.log("Skipped:\t" + str(skipped))
+			self.log("Errored:\t" + str(errored))
 
 		self.log()
 		self.log("Success:\t" + str(self.successful))
