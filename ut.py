@@ -4,8 +4,8 @@ from bs4 import BeautifulSoup
 from urllib.request import urlopen, Request
 import re, sys, os, getopt, time, pprint, datetime, base64
 
-def main(mainargs):
-	global verbose, quiet, domain, starturl, log, extended, secured, successful, skipped, errored, warned
+class UT(object):
+	"""docstring for UT"""
 
 	verbose = False
 	quiet = False
@@ -13,152 +13,149 @@ def main(mainargs):
 	domain = ""
 	starturl = None
 	secured = False
+	logfile = None
 
-	try:
-		opts, args = getopt.getopt(mainargs, "hvqd:u:es", ["--help","--verbose","--quiet","--domain","--start-url","--extended","--secured"])
-	except getopt.GetoptError as err:
-		print(err)
-		sys.exit(2)
+	def __init__(self, mainargs):
+		try:
+			opts, args = getopt.getopt(mainargs, "hvqd:u:es", ["--help","--verbose","--quiet","--domain","--start-url","--extended","--secured"])
+		except getopt.GetoptError as err:
+			print(err)
+			sys.exit(2)
 
-	for o, a in opts:
-		if o in ("-v", "--verbose"):
-			verbose = True
-		elif o in ("-q", "--quiet"):
-			quiet = True
-		elif o in ("-e", "--extended"):
-			extended = True
-		elif o in ("-s", "--secured"):
-			secured = True
-		elif o in ("-h", "--help"):
-			print("Help text coming soon")
-			sys.exit()
-		elif o in ("-u", "--start-url"):
-			starturl = a
+		for o, a in opts:
+			if o in ("-v", "--verbose"):
+				self.verbose = True
+			elif o in ("-q", "--quiet"):
+				self.quiet = True
+			elif o in ("-e", "--extended"):
+				self.extended = True
+			elif o in ("-s", "--secured"):
+				self.secured = True
+			elif o in ("-h", "--help"):
+				print("Help text coming soon")
+				sys.exit()
+			elif o in ("-u", "--start-url"):
+				self.starturl = a
+			else:
+				assert False, "unhandled option"
+		try:
+			for d in args:
+				self.parse(d,self.starturl)
+		except KeyboardInterrupt:
+			self.log()
+			self.log("Operation Aborted")
+			self.log("Success:\t" + str(successful))
+			self.log("Warning:\t" + str(warned))
+			self.log("Skipped:\t" + str(skipped))
+			self.log("Errored:\t" + str(errored))
+			self.log()
+			pass
+		except SystemExit:
+			pass
+		except Exception as e:
+			raise e
+			print(e)
+
+	def log(self,msg="",display_it = True):
+		if display_it:
+			print(msg)
+		self.logfile.write(msg + "\n")
+
+	def parse(self,domain,starturl):
+		home = str(os.path.expanduser("~"))
+		workdir = home + "/.ut/"
+		try:
+			os.stat(workdir)
+		except:
+			os.mkdir(workdir)	   
+
+		domaindir = workdir + domain + "/"
+		try:
+			os.stat(domaindir)
+		except:
+			os.mkdir(domaindir)	   
+
+		datedir = domaindir + time.strftime("%Y-%m-%d") + "/"
+		try:
+			os.stat(datedir)
+		except:
+			os.mkdir(datedir)	   
+
+		if self.secured:
+			self.homeurl = "https://" + domain + "/"
 		else:
-			assert False, "unhandled option"
-	try:
-		for d in args:
-			parse(d,starturl)
-	except KeyboardInterrupt:
-		logstr()
-		logstr("Operation Aborted")
-		logstr("Success:\t" + str(successful))
-		logstr("Warning:\t" + str(warned))
-		logstr("Skipped:\t" + str(skipped))
-		logstr("Errored:\t" + str(errored))
-		logstr()
-		pass
-	except SystemExit:
-		pass
-	except Exception as e:
-		raise e
-		print(e)
+			self.homeurl = "http://" + domain + "/"
 
-def parse(domain,starturl):
-	global verbose, quiet, log, homeurl, visited, secured, successful, skipped, errored, warned, db, dbc
+		if self.starturl is None:
+			self.starturl = self.homeurl
 
-	home = str(os.path.expanduser("~"))
-	workdir = home + "/.ut/"
-	try:
-		os.stat(workdir)
-	except:
-		os.mkdir(workdir)	   
+		self.visited = []
+		self.successful = 0
+		self.skipped = 0
+		self.errored = 0
+		self.warned = 0
 
-	domaindir = workdir + domain + "/"
-	try:
-		os.stat(domaindir)
-	except:
-		os.mkdir(domaindir)	   
+		self.logfile = open(datedir + time.strftime("%H-%M-%S") + ".log","w")
+		self.log("Domain: " + domain)
+		self.log()
 
-	datedir = domaindir + time.strftime("%Y-%m-%d") + "/"
-	try:
-		os.stat(datedir)
-	except:
-		os.mkdir(datedir)	   
+		self.chain(domain,self.starturl)
 
-	if secured:
-		homeurl = "https://" + domain + "/"
-	else:
-		homeurl = "http://" + domain + "/"
+		self.log()
+		self.log("Success:\t" + str(self.successful))
+		self.log("Warning:\t" + str(self.warned))
+		self.log("Skipped:\t" + str(self.skipped))
+		self.log("Errored:\t" + str(self.errored))
+		self.logfile.close()
 
-	if starturl is None:
-		starturl = homeurl
+	def chain(self,domain,url,ref = ""):
+		urlu = url
 
-	visited = []
-	successful = 0
-	skipped = 0
-	errored = 0
-	warned = 0
+		if not url:
+			return
 
-	log = open(datedir + time.strftime("%H-%M-%S") + ".log","w")
-	logstr("Domain: " + domain)
-	logstr()
+		m = re.match('^/([^/].*)', url)
+		if m:
+			url = self.homeurl + m.group(1)
 
-	chain(domain,starturl)
+		m = re.match("^(http|https)://([^/]+)/([^#]*)", url)
+		if m and self.extended:
+			url = m.group(1) + "://" + m.group(2) + "/" + m.group(3)
+	 
+		m = re.match("^(http|https)://([^/]+)/([^\?#]*)", url)
+		if m and not self.extended:
+			url = m.group(1) + "://" + m.group(2) + "/" + m.group(3)
 
-	logstr()
-	logstr("Success:\t" + str(successful))
-	logstr("Warning:\t" + str(warned))
-	logstr("Skipped:\t" + str(skipped))
-	logstr("Errored:\t" + str(errored))
-	log.close()
+		if url not in self.visited:
+			self.visited.append(url)
+			if re.search('^(http|https)://([^/]+\.)?' + domain + "/", url):
 
-def chain(domain,url,ref = ""):
-	global verbose, quiet, homeurl, visited, extended, successful, skipped, errored, warned
+				if re.search('\.(jpg|png|pdf|jpeg|mp3|gif|eps)', url):
+					self.visited.append(url)
+					self.log("SKIP" + "\t" + url, verbose)
+					self.skipped += 1
+					return
 
-	urlu = url
+				try:
+					html = urlopen(Request(url, headers={'User-Agent': 'HadornBot/1.0'}))
+					html_page = html.read()
+					html_code = html.getcode()
+	 
+					if html_code == 200:
+						self.log("OK" + "\t" + url, not self.quiet)
+						self.successful += 1
+					else:
+						self.log("Status " + str(html_code) + "\t" + url)
+						self.warned += 1
 
-	if not url:
-		return
+					soup = BeautifulSoup(html_page,'html.parser')
+					for link in soup.findAll("a"):
+						self.chain(domain,link.get('href'),url)
 
-	m = re.match('^/([^/].*)', url)
-	if m:
-		url = homeurl + m.group(1)
-
-	m = re.match("^(http|https)://([^/]+)/([^#]*)", url)
-	if m and extended:
-		url = m.group(1) + "://" + m.group(2) + "/" + m.group(3)
- 
-	m = re.match("^(http|https)://([^/]+)/([^\?#]*)", url)
-	if m and not extended:
-		url = m.group(1) + "://" + m.group(2) + "/" + m.group(3)
-
-	if url not in visited:
-		visited.append(url)
-		if re.search('^(http|https)://([^/]+\.)?' + domain + "/", url):
-
-			if re.search('\.(jpg|png|pdf|jpeg|mp3|gif|eps)', url):
-				visited.append(url)
-				logstr("SKIP" + "\t" + url, verbose)
-				skipped += 1
-				return
-
-			try:
-				html = urlopen(Request(url, headers={'User-Agent': 'HadornBot/1.0'}))
-				html_page = html.read()
-				html_code = html.getcode()
- 
-				if html_code == 200:
-					logstr("OK" + "\t" + url, not quiet)
-					successful += 1
-				else:
-					logstr("Status " + str(html_code) + "\t" + url)
-					warned += 1
-
-				soup = BeautifulSoup(html_page,'html.parser')
-				for link in soup.findAll("a"):
-					chain(domain,link.get('href'),url)
-
-			except Exception as e:
-				raise e
-				logstr(str(e) + "\t" + url + "\t (Ref: " + ref + ")")
-				errored += 1
-
-def logstr(msg="",display_it = True):
-	global log
-	if display_it:
-		print(msg)
-	log.write(msg + "\n")
+				except Exception as e:
+					raise e
+					self.log(str(e) + "\t" + url + "\t (Ref: " + ref + ")")
+					self.errored += 1
 
 if __name__ == "__main__":
-	main(sys.argv[1:])
+	main = UT(sys.argv[1:])
