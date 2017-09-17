@@ -135,54 +135,42 @@ class UT(object):
 
 	def chain(self,url,ref = ""):
 		import http.client
+		import urllib.parse
 
-		urlu = url
+		URL = urllib.parse.urlparse(url)
 
-		if not url:
+		if not isinstance(URL,urllib.parse.ParseResult):
+			return
+		if not re.search('^(.*\.)?' + self.domain, URL.netloc):
 			return
 
-		m = re.match('^/([^/].*)', url)
-		if m:
-			url = self.homeurl + m.group(1)
+		URL = URL._replace(params='')
+		URL = URL._replace(fragment='')
+		if not self.extended:
+			URL = URL._replace(query='')
 
-		m = re.match("^(http|https)://([^/]+)/([^#]*)", url)
-		if m and self.extended:
-			url = m.group(1) + "://" + m.group(2) + "/" + m.group(3)
-	 
-		m = re.match("^(http|https)://([^/]+)/([^\?#]*)", url)
-		if m and not self.extended:
-			url = m.group(1) + "://" + m.group(2) + "/" + m.group(3)
-
+		url = urllib.parse.urlunparse(URL)
 		if url not in self.visited:
 			self.visited.append(url)
-			if re.search('^(http|https)://([^/]+\.)?' + self.domain + "/", url):
+			if re.search('\.(jpg|png|pdf|jpeg|mp3|gif|eps)', URL.path):
+				self.log("SKIP" + "\t" + url + "\t(Ref: " + ref + ")", self.verbose)
+				self.skipped += 1
+				return
 
-				if re.search('\.(jpg|png|pdf|jpeg|mp3|gif|eps)', url):
-					self.visited.append(url)
-					self.log("SKIP" + "\t" + url + "\t(Ref: " + ref + ")", self.verbose)
-					self.skipped += 1
-					return
+			html = urlopen(Request(url, headers={'User-Agent': 'HadornBot/1.0'}))
+			html_page = html.read()
+			html_code = html.getcode()
 
-				try:
-					html = urlopen(Request(url, headers={'User-Agent': 'HadornBot/1.0'}))
-					html_page = html.read()
-					html_code = html.getcode()
-	 
-					if html_code == 200:
-						self.log("OK" + "\t" + url + "\t(Ref: " + ref + ")", not self.quiet)
-						self.successful += 1
-					else:
-						self.log("Status " + str(html_code) + "\t" + url)
-						self.warned += 1
+			if html_code == 200:
+				self.log("OK" + "\t" + url + "\t(Ref: " + ref + ")", not self.quiet)
+				self.successful += 1
+			else:
+				self.log("Status " + str(html_code) + "\t" + url)
+				self.warned += 1
 
-					soup = BeautifulSoup(html_page,'html.parser')
-					for link in soup.findAll("a"):
-						self.chain(link.get('href'),url)
-
-				except Exception as e:
-					raise e
-					self.log(str(e) + "\t" + url + "\t (Ref: " + ref + ")")
-					self.errored += 1
+			soup = BeautifulSoup(html_page,'html.parser')
+			for link in soup.findAll("a"):
+				self.chain(link.get('href'),url)
 
 if __name__ == "__main__":
 	main = UT(sys.argv[1:])
