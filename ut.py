@@ -16,11 +16,14 @@ class UT(object):
 	logfile = None
 	domain = ''
 	action = 'scan'
+	only_static = False
+	external_static = False
+	list_view = False
 	recursive = 0
 
 	def read_params(self,mainargs):
 		try:
-			opts, args = getopt.getopt(mainargs, "hvqer:", ["--help","--verbose","--quiet","--secured","--diff"])
+			opts, args = getopt.getopt(mainargs, "hvqer:", ["help","verbose","quiet","secured","diff","only-static","external-static","list"])
 		except getopt.GetoptError as err:
 			print(err)
 			sys.exit(2)
@@ -40,6 +43,12 @@ class UT(object):
 				self.secured = True
 			elif o in ("-r"):
 				self.recursive = int(a)
+			elif o in ("--only-static"):
+				self.only_static = True
+			elif o in ("--external-static"):
+				self.external_static = True
+			elif o in ("--list"):
+				self.list_view = True
 
 			elif o in ("--diff"):
 				self.action = "diff"
@@ -121,8 +130,9 @@ class UT(object):
 		self.recursive_counter = 0
 
 		self.logfile = open(domaindir + time.strftime("%Y%m%d%H%M%S") + ".log","w")
-		self.log("Domain: " + self.domain)
-		self.log()
+		if not self.list_view:
+			self.log("Domain: " + self.domain)
+			self.log()
 
 		try:
 			self.chain(self.starturl)
@@ -132,11 +142,12 @@ class UT(object):
 		except:
 			raise
 		finally:
-			self.log()
-			self.log("Success:\t" + str(self.successful))
-			self.log("Warning:\t" + str(self.warned))
-			self.log("Skipped:\t" + str(self.skipped))
-			self.log("Errored:\t" + str(self.errored))
+			if not self.list_view:
+				self.log()
+				self.log("Success:\t" + str(self.successful))
+				self.log("Warning:\t" + str(self.warned))
+				self.log("Skipped:\t" + str(self.skipped))
+				self.log("Errored:\t" + str(self.errored))
 
 	def chain(self,url,ref = ""):
 		import http.client
@@ -158,13 +169,21 @@ class UT(object):
 			if url not in self.visited_external:
 				if re.search('\.(jpg|png|pdf|jpeg|mp3|mp4|gif|eps|exe|dmg|zip|tar|gz|deb|rpm)', URL.path):
 					self.visited_external.append(url)
-					self.log("SKIP" + "\t" + url + "\t(Ref: " + ref + ")", self.verbose)
+					if self.external_static:
+						if self.list_view:
+							self.log(url, self.verbose)
+						else:
+							self.log("SKIP" + "\t" + url + "\t(Ref: " + ref + ")", self.verbose)
+
 			return
 
 		if url not in self.visited:
 			self.visited.append(url)
 			if re.search('\.(jpg|png|pdf|jpeg|mp3|mp4|gif|eps|exe|dmg|zip|tar|gz|deb|rpm)', URL.path):
-				self.log("SKIP" + "\t" + url + "\t(Ref: " + ref + ")", self.verbose)
+				if self.list_view:
+					self.log(url, self.verbose)
+				else:
+					self.log("SKIP" + "\t" + url + "\t(Ref: " + ref + ")", self.verbose)
 				self.skipped += 1
 				return
 
@@ -173,7 +192,11 @@ class UT(object):
 			html_code = html.getcode()
 
 			if html_code == 200:
-				self.log("OK" + "\t" + url + "\t(Ref: " + ref + ")", not self.quiet)
+				if not self.only_static:
+					if self.list_view:
+						self.log(url, not self.quiet)
+					else:
+						self.log("OK" + "\t" + url + "\t(Ref: " + ref + ")", not self.quiet)
 				self.successful += 1
 			else:
 				self.log("Status " + str(html_code) + "\t" + url)
