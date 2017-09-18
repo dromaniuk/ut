@@ -152,7 +152,7 @@ class UT(object):
 		url = urllib.parse.urlunparse(URL)
 		if url not in self.visited:
 			self.visited.append(url)
-			if re.search('\.(jpg|png|pdf|jpeg|mp3|gif|eps)', URL.path):
+			if re.search('\.(jpg|png|pdf|jpeg|mp3|gif|eps|exe|dmg|zip|tar|gz|deb|rpm)', URL.path):
 				self.log("SKIP" + "\t" + url + "\t(Ref: " + ref + ")", self.verbose)
 				self.skipped += 1
 				return
