@@ -16,10 +16,11 @@ class UT(object):
 	logfile = None
 	domain = ''
 	action = 'scan'
+	recursive = 0
 
 	def read_params(self,mainargs):
 		try:
-			opts, args = getopt.getopt(mainargs, "hvqe", ["--help","--verbose","--quiet","--secured","--diff"])
+			opts, args = getopt.getopt(mainargs, "hvqer:", ["--help","--verbose","--quiet","--secured","--diff"])
 		except getopt.GetoptError as err:
 			print(err)
 			sys.exit(2)
@@ -37,6 +38,8 @@ class UT(object):
 				self.extended = True
 			elif o in ("--secured"):
 				self.secured = True
+			elif o in ("-r"):
+				self.recursive = int(a)
 
 			elif o in ("--diff"):
 				self.action = "diff"
@@ -110,10 +113,12 @@ class UT(object):
 			self.starturl = self.homeurl
 
 		self.visited = []
+		self.visited_external = []
 		self.successful = 0
 		self.skipped = 0
 		self.errored = 0
 		self.warned = 0
+		self.recursive_counter = 0
 
 		self.logfile = open(domaindir + time.strftime("%Y%m%d%H%M%S") + ".log","w")
 		self.log("Domain: " + self.domain)
@@ -141,8 +146,6 @@ class UT(object):
 
 		if not isinstance(URL,urllib.parse.ParseResult):
 			return
-		if not re.search('^(.*\.)?' + self.domain, URL.netloc):
-			return
 
 		URL = URL._replace(params='')
 		URL = URL._replace(fragment='')
@@ -150,9 +153,17 @@ class UT(object):
 			URL = URL._replace(query='')
 
 		url = urllib.parse.urlunparse(URL)
+
+		if not re.search('^(.*\.)?' + self.domain, URL.netloc):
+			if url not in self.visited_external:
+				if re.search('\.(jpg|png|pdf|jpeg|mp3|mp4|gif|eps|exe|dmg|zip|tar|gz|deb|rpm)', URL.path):
+					self.visited_external.append(url)
+					self.log("SKIP" + "\t" + url + "\t(Ref: " + ref + ")", self.verbose)
+			return
+
 		if url not in self.visited:
 			self.visited.append(url)
-			if re.search('\.(jpg|png|pdf|jpeg|mp3|gif|eps|exe|dmg|zip|tar|gz|deb|rpm)', URL.path):
+			if re.search('\.(jpg|png|pdf|jpeg|mp3|mp4|gif|eps|exe|dmg|zip|tar|gz|deb|rpm)', URL.path):
 				self.log("SKIP" + "\t" + url + "\t(Ref: " + ref + ")", self.verbose)
 				self.skipped += 1
 				return
@@ -170,7 +181,17 @@ class UT(object):
 
 			soup = BeautifulSoup(html_page,'html.parser')
 			for link in soup.findAll("a"):
-				self.chain(link.get('href'),url)
+				# print("Recursive: " + str(self.recursive) + "\tCounter:" + str(self.recursive_counter) + "\t Checking...")
+				if self.recursive > 0:
+					if self.recursive > self.recursive_counter:
+						self.recursive_counter += 1
+						# print("Incrementing...\tCounter:" + str(self.recursive_counter))
+						self.chain(link.get('href'),url)
+						self.recursive_counter -= 1
+						# print("Decrementing...\tCounter:" + str(self.recursive_counter))
+				elif self.recursive == 0:
+					self.chain(link.get('href'),url)
+
 
 if __name__ == "__main__":
 	main = UT(sys.argv[1:])
