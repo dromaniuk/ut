@@ -3,6 +3,7 @@
 from bs4 import BeautifulSoup
 from urllib.request import urlopen, Request
 import urllib.parse
+import http.client
 import re, sys, os, getopt, time, pprint, datetime, base64, threading
 
 class UT(object):
@@ -13,20 +14,16 @@ class UT(object):
 	extended = False
 	domain = ""
 	starturl = None
-	secured = False
 	logfile = None
-	domain = ''
 	action = 'scan'
 	only_static = False
 	external_static = False
 	list_view = False
-	recursive = 0
-	static_extensions = ['jpg','png','pdf','jpeg','mp3','mp4','gif','eps','exe','dmg','zip','tar','gz','deb','rpm']
-	noreferrer = True
+	showsummary = False
 
 	def read_params(self,mainargs):
 		try:
-			opts, args = getopt.getopt(mainargs, "hvqer:", ["help","verbose","quiet","secured","diff","only-static","external-static","list","no-ref"])
+			opts, args = getopt.getopt(mainargs, "hvqser:", ["help","verbose","quiet","diff","only-static","external-static","list"])
 		except getopt.GetoptError as err:
 			print(err)
 			sys.exit(2)
@@ -42,18 +39,14 @@ class UT(object):
 				self.quiet = True
 			elif o in ("-e"):
 				self.extended = True
-			elif o in ("--secured"):
-				self.secured = True
-			elif o in ("-r"):
-				self.recursive = int(a)
+			elif o in ("-s"):
+				self.showsummary = True
 			elif o in ("--only-static"):
 				self.only_static = True
 			elif o in ("--external-static"):
 				self.external_static = True
 			elif o in ("--list"):
 				self.list_view = True
-			elif o in ("--no-ref"):
-				self.noreferrer = True
 
 			elif o in ("--diff"):
 				self.action = "diff"
@@ -98,8 +91,15 @@ class UT(object):
 
 	def log(self,msg=[""],display_it = True):
 		if display_it:
-			print("\t".join(msg))
+			sys.stdout.write("\t".join(msg) + "\n")
+			sys.stdout.flush()
 		self.logfile.write("\t".join(msg) + "\n")
+
+	def display(self):
+		while len(threading.enumerate())-2 > 0 or len(self.queue) > 0:
+			sys.stdout.write("\rTreads: {0:2d}\tQueue: {1:4d}\tSucc: {2:4d}\tSkip: {3:4d}\tRedir: {4:4d}\tErr: {5:4d}".format(threading.active_count()-2,len(self.queue),len(self.successful),len(self.skipped),len(self.redirected),len(self.errored)))
+			sys.stdout.flush()
+			time.sleep(.5)
 
 	def suredir(self,directory):
 		try:
@@ -118,10 +118,7 @@ class UT(object):
 
 		self.datesuffix = base64.b64encode(time.strftime("%Y-%m-%d %H:%M:%S").encode("ascii"))
 
-		if self.secured:
-			self.homeurl = "https://" + self.domain + "/"
-		else:
-			self.homeurl = "http://" + self.domain + "/"
+		self.homeurl = "https://" + self.domain + "/"
 
 		if self.starturl is None:
 			self.starturl = self.homeurl
@@ -129,117 +126,148 @@ class UT(object):
 		self.visited = []
 		self.visited_external = []
 		self.queue = []
-		self.successful = 0
-		self.skipped = 0
-		self.errored = 0
-		self.warned = 0
+		self.successful = []
+		self.skipped = []
+		self.errored = []
+		self.redirected = []
 
 		self.logfile = open(domaindir + time.strftime("%Y%m%d%H%M%S") + ".log","w")
 		if not self.list_view:
 			self.log(["Domain:",self.domain])
-			self.log()
 
 		try:
-			self.queue.append(self.starturl)
+			self.queue.append([self.starturl,''])
 			main_thread = threading.main_thread()
+			if self.quiet:
+				mon_thread = threading.Thread(target=self.display)
+				mon_thread.start()
 			while len(self.queue):
-				while len(threading.enumerate())-1 < 24 and len(self.queue) > 0:
-					url = self.queue.pop()
-					t = threading.Thread(target=self.chain, args=(url,))
+				while threading.active_count()-2 < 12 and len(self.queue) > 0:
+					url, ref = self.queue.pop()
+					t = threading.Thread(target=self.chain, args=(url,ref))
 					t.start()
 				for t in threading.enumerate():
-				    if t is main_thread:
-				        continue
-				    t.join()
-				    break
+					if t is main_thread:
+						continue
+					if self.quiet:
+						if t is mon_thread:
+							continue
+					t.join()
+					break
 		except KeyboardInterrupt:
-			self.log()
-			self.log(["Operation Aborted"])
 			main_thread = threading.main_thread()
 			for t in threading.enumerate():
-			    if t is main_thread:
-			        continue
-			    t.join()
+				if t is main_thread:
+					continue
+				if self.quiet:
+					if t is mon_thread:
+						continue
+				t.join()
+			self.queue = []
+			sys.stdout.write("\r" + " "*100 + "\rOperation Aborted\n")
+			sys.stdout.flush()
+			main_thread = threading.main_thread()
+			for t in threading.enumerate():
+				if t is main_thread:
+					continue
+				t.join()
 		except:
 			raise
 		finally:
-			if not self.list_view:
-				self.log()
-				self.log(["Success:",str(self.successful)])
-				self.log(["Warning:",str(self.warned)])
-				self.log(["Skipped:",str(self.skipped)])
-				self.log(["Errored:",str(self.errored)])
+			sys.stdout.write("\r" + " "*100 + "\r" )
+			sys.stdout.flush()
+			if self.showsummary:
+				if len(self.successful):
+					self.log()
+					self.log(["Success:"])
+					for status, reason, url, ref in self.successful:
+						self.log([str(status),reason,url,"(Ref:" + ref + ")"])
+				if len(self.skipped):
+					self.log()
+					self.log(["Skipped:"])
+					for status, reason, mime, url, ref in self.skipped:
+						self.log([str(status),reason,mime,url,"(Ref:" + ref + ")"])
+				if len(self.redirected):
+					self.log()
+					self.log(["Redirected:"])
+					for status, reason, url, location, ref in self.redirected:
+						self.log([str(status),reason,url,"=> " + location,"(Ref:" + ref + ")"])
+				if len(self.errored):
+					self.log()
+					self.log(["Errored:"])
+					for status, reason, url, ref in self.errored:
+						self.log([str(status),reason,url,"(Ref:" + ref + ")"])
+			self.log()
+			if len(self.successful):
+				self.log(["Success:",str(len(self.successful))])
+			if len(self.skipped):
+				self.log(["Skipped:",str(len(self.skipped))])
+			if len(self.redirected):
+				self.log(["Redirected:",str(len(self.redirected))])
+			if len(self.errored):
+				self.log(["Errored:",str(len(self.errored))])
 
 	def chain(self,url,ref = ""):
-		import http.client
+		try:
+			URL = urllib.parse.urlparse(url)
 
-		URL = urllib.parse.urlparse(url)
-
-		if not isinstance(URL,urllib.parse.ParseResult):
-			return
-
-		URL = URL._replace(params='')
-		URL = URL._replace(fragment='')
-		if not self.extended:
-			URL = URL._replace(query='')
-
-		url = urllib.parse.urlunparse(URL)
-
-		if not re.search('^(.*\.)?' + self.domain, URL.netloc):
-			if url not in self.visited_external:
-				if re.search('\.(' + '|'.join(self.static_extensions) + ')', URL.path):
-					self.visited_external.append(url)
-					msg = [url]
-					if not self.list_view:
-						msg.insert(0,"SKIP")
-						if not self.noreferrer:
-							msg.append("(Ref: " + ref + ")")
-					self.log(msg,self.external_static and self.verbose)
-			return
-
-		if url not in self.visited:
-			self.visited.append(url)
-			if re.search('\.(' + '|'.join(self.static_extensions) + ')', URL.path):
-				msg = [url]
-				if not self.list_view:
-					msg.insert(0,"SKIP")
-					if not self.noreferrer:
-						msg.append("(Ref: " + ref + ")")
-				self.log(msg,self.verbose)
-				self.skipped += 1
+			if not isinstance(URL,urllib.parse.ParseResult):
 				return
 
-			html = urlopen(Request(url, headers={'User-Agent': 'HadornBot/1.0'}))
-			html_page = html.read()
-			html_code = html.getcode()
+			URL = URL._replace(params='')
+			URL = URL._replace(fragment='')
+			URL = URL._replace(query='')
 
-			msg = [url]
-			if html_code == 200:
-				if not self.list_view:
-					msg.insert(0,"OK")
-					if not self.noreferrer:
-						msg.append("(Ref: " + ref + ")")
-				self.log(msg,not self.only_static and not self.quiet)
-				self.successful += 1
-			else:
-				msg.insert(0,"Status" + str(html_code))
-				if not self.noreferrer:
-					msg.append("(Ref: " + ref + ")")
-				self.log(msg,not self.only_static and not self.quiet and not self.list_view)
-				self.warned += 1
+			url = urllib.parse.urlunparse(URL)
 
-			soup = BeautifulSoup(html_page,'html.parser')
-			for link in soup.findAll("a"):
-				pointer = link.get('href')
-				if pointer not in self.visited and pointer not in self.queue:
-					self.queue.append(pointer)
-				# if self.recursive > 0:
-				# 	if self.recursive > self.recursive_counter:
-				# 		self.recursive_counter += 1
-				# 		self.chain(link.get('href'),url)
-				# 		self.recursive_counter -= 1
-				# elif self.recursive == 0:
-				# 	self.chain(link.get('href'),url)
+			if url not in self.visited:
+				self.visited.append(url)
+
+				if URL.scheme == 'http':
+					conn = http.client.HTTPConnection(URL.netloc)
+				elif URL.scheme == 'https':
+					conn = http.client.HTTPSConnection(URL.netloc)
+				else:
+					return
+
+				conn.request("GET", URL.path)
+				resp = conn.getresponse()
+
+				if resp.status in (200, ):
+					mime = resp.getheader("Content-Type")
+					if re.search('^text/html', mime):
+						self.successful.append([resp.status,resp.reason,url,ref])
+						if not self.quiet:
+							self.log([str(resp.status),resp.reason,url,"(Ref:" + ref + ")"])
+						html_page = resp.read()
+						soup = BeautifulSoup(html_page,'html.parser')
+						for link in soup.findAll("a"):
+							P = urllib.parse.urlparse(link.get('href'))._replace(params='',fragment='',query='')
+							if isinstance(P,urllib.parse.ParseResult):
+								pointer = urllib.parse.urlunparse(P)
+								if re.search('^(.*\.)?' + self.domain, P.netloc) and pointer not in self.visited and pointer not in self.queue:
+									self.queue.append([pointer,url])
+					else:
+						self.skipped.append([resp.status,resp.reason,mime,url,ref])
+
+				elif resp.status in (301, 302):
+					location = resp.getheader("Location");
+					self.redirected.append([resp.status,resp.reason,url,location,ref])
+					self.queue.append([location,url])
+					if not self.quiet and self.verbose:
+						self.log([str(resp.status),resp.reason,url,"=> " + location,"(Ref:" + ref + ")"])
+
+				elif resp.status in (500, ):
+					self.errored.append([resp.status,resp.reason,url,ref])
+				else:
+					print(str(resp.status) + "\t" + resp.reason)
+					return
+		except KeyboardInterrupt:
+			pass
+		except http.client.BadStatusLine:
+			self.errored.append(["ERROR","BadStatusLine",url,ref])
+		except:
+			raise
 
 if __name__ == "__main__":
 	main = UT(sys.argv[1:])
