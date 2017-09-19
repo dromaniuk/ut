@@ -2,7 +2,8 @@
 
 from bs4 import BeautifulSoup
 from urllib.request import urlopen, Request
-import re, sys, os, getopt, time, pprint, datetime, base64
+import urllib.parse
+import re, sys, os, getopt, time, pprint, datetime, base64, threading
 
 class UT(object):
 	"""docstring for UT"""
@@ -21,7 +22,7 @@ class UT(object):
 	list_view = False
 	recursive = 0
 	static_extensions = ['jpg','png','pdf','jpeg','mp3','mp4','gif','eps','exe','dmg','zip','tar','gz','deb','rpm']
-	noreferrer = False
+	noreferrer = True
 
 	def read_params(self,mainargs):
 		try:
@@ -127,11 +128,11 @@ class UT(object):
 
 		self.visited = []
 		self.visited_external = []
+		self.queue = []
 		self.successful = 0
 		self.skipped = 0
 		self.errored = 0
 		self.warned = 0
-		self.recursive_counter = 0
 
 		self.logfile = open(domaindir + time.strftime("%Y%m%d%H%M%S") + ".log","w")
 		if not self.list_view:
@@ -139,10 +140,26 @@ class UT(object):
 			self.log()
 
 		try:
-			self.chain(self.starturl)
+			self.queue.append(self.starturl)
+			main_thread = threading.main_thread()
+			while len(self.queue):
+				while len(threading.enumerate())-1 < 24 and len(self.queue) > 0:
+					url = self.queue.pop()
+					t = threading.Thread(target=self.chain, args=(url,))
+					t.start()
+				for t in threading.enumerate():
+				    if t is main_thread:
+				        continue
+				    t.join()
+				    break
 		except KeyboardInterrupt:
 			self.log()
 			self.log(["Operation Aborted"])
+			main_thread = threading.main_thread()
+			for t in threading.enumerate():
+			    if t is main_thread:
+			        continue
+			    t.join()
 		except:
 			raise
 		finally:
@@ -155,7 +172,6 @@ class UT(object):
 
 	def chain(self,url,ref = ""):
 		import http.client
-		import urllib.parse
 
 		URL = urllib.parse.urlparse(url)
 
@@ -214,14 +230,16 @@ class UT(object):
 
 			soup = BeautifulSoup(html_page,'html.parser')
 			for link in soup.findAll("a"):
-				if self.recursive > 0:
-					if self.recursive > self.recursive_counter:
-						self.recursive_counter += 1
-						self.chain(link.get('href'),url)
-						self.recursive_counter -= 1
-				elif self.recursive == 0:
-					self.chain(link.get('href'),url)
-
+				pointer = link.get('href')
+				if pointer not in self.visited and pointer not in self.queue:
+					self.queue.append(pointer)
+				# if self.recursive > 0:
+				# 	if self.recursive > self.recursive_counter:
+				# 		self.recursive_counter += 1
+				# 		self.chain(link.get('href'),url)
+				# 		self.recursive_counter -= 1
+				# elif self.recursive == 0:
+				# 	self.chain(link.get('href'),url)
 
 if __name__ == "__main__":
 	main = UT(sys.argv[1:])
