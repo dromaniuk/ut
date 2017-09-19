@@ -14,6 +14,7 @@ class UT(object):
 	quiet = False
 	extended = False
 	domain = ""
+	domains = []
 	starturl = None
 	logfile = None
 	action = 'scan'
@@ -60,8 +61,13 @@ class UT(object):
 		if self.action == "scan":
 			if len(args) > 0:
 				self.domain = args[0]
-				if len(args) > 1:
-					self.starturl = args[1]
+				for u in args:
+					d = urllib.parse.urlparse(u)
+					if re.search('^http(s)?://', u):
+						self.domains.append(d.netloc)
+					else:
+						self.domains.append(d.path)
+				self.domain = self.domains[0]
 			else:
 				assert False, "wrong input parameters"
 		elif self.action == "diff":
@@ -122,11 +128,6 @@ class UT(object):
 
 		self.datesuffix = base64.b64encode(time.strftime("%Y-%m-%d %H:%M:%S").encode("ascii"))
 
-		self.homeurl = "https://" + self.domain + "/"
-
-		if self.starturl is None:
-			self.starturl = self.homeurl
-
 		self.visited = []
 		self.visited_external = []
 		self.queue = []
@@ -135,12 +136,16 @@ class UT(object):
 		self.errored = []
 		self.redirected = []
 
+		for d in self.domains:
+			self.queue.append(["http://" + d + "/",''])
+			self.queue.append(["https://" + d + "/",''])
+		print(self.queue)
+
 		self.logfile = open(domaindir + time.strftime("%Y%m%d%H%M%S") + ".log","w")
 		if not self.list_view:
 			self.log(["Domain:",self.domain])
 
 		try:
-			self.queue.append([self.starturl,''])
 			main_thread = threading.main_thread()
 			if self.quiet:
 				mon_thread = threading.Thread(target=self.display)
@@ -252,8 +257,10 @@ class UT(object):
 							P = urllib.parse.urlparse(link.get('href'))._replace(params='',fragment='',query='')
 							if isinstance(P,urllib.parse.ParseResult):
 								pointer = urllib.parse.urlunparse(P)
-								if re.search('^(.*\.)?' + self.domain, P.netloc) and pointer not in self.visited and pointer not in self.queue:
-									self.queue.append([pointer,url])
+								if pointer not in self.visited and pointer not in self.queue:
+									for d in self.domains:
+										if re.search('^(.*\.)?' + d, P.netloc):
+											self.queue.append([pointer,url])
 					else:
 						self.skipped.append([resp.status,resp.reason,mime,url,ref])
 
@@ -273,6 +280,8 @@ class UT(object):
 			pass
 		except http.client.BadStatusLine:
 			self.errored.append(["ERROR","BadStatusLine",url,ref])
+		except UnicodeEncodeError:
+			print("UnicodeEncodeError: " +URL.netloc + " " + URL.path)
 		except:
 			raise
 
