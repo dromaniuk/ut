@@ -2,6 +2,7 @@
 
 from bs4 import BeautifulSoup
 from urllib.request import urlopen, Request
+from multiprocessing import cpu_count
 import urllib.parse
 import http.client
 import re, sys, os, getopt, time, pprint, datetime, base64, threading
@@ -20,10 +21,11 @@ class UT(object):
 	external_static = False
 	list_view = False
 	showsummary = False
+	threads = cpu_count()*2
 
 	def read_params(self,mainargs):
 		try:
-			opts, args = getopt.getopt(mainargs, "hvqser:", ["help","verbose","quiet","diff","only-static","external-static","list"])
+			opts, args = getopt.getopt(mainargs, "hvqsert:", ["help","verbose","quiet","diff","only-static","external-static","list"])
 		except getopt.GetoptError as err:
 			print(err)
 			sys.exit(2)
@@ -41,6 +43,8 @@ class UT(object):
 				self.extended = True
 			elif o in ("-s"):
 				self.showsummary = True
+			elif o in ("-t"):
+				self.threads = int(a)
 			elif o in ("--only-static"):
 				self.only_static = True
 			elif o in ("--external-static"):
@@ -142,18 +146,21 @@ class UT(object):
 				mon_thread = threading.Thread(target=self.display)
 				mon_thread.start()
 			while len(self.queue):
-				while threading.active_count()-2 < 12 and len(self.queue) > 0:
-					url, ref = self.queue.pop()
-					t = threading.Thread(target=self.chain, args=(url,ref))
+				while threading.active_count()-2 < self.threads and len(self.queue) > 0:
+					t = threading.Thread(target=self.chain, args=self.queue.pop())
 					t.start()
-				for t in threading.enumerate():
-					if t is main_thread:
-						continue
-					if self.quiet:
-						if t is mon_thread:
+
+				if threading.active_count()-2 < cpu_count():
+					for t in threading.enumerate():
+						if t is main_thread:
 							continue
-					t.join()
-					break
+						if self.quiet:
+							if t is mon_thread:
+								continue
+						t.join()
+						break
+				else:
+					time.sleep(.1)
 		except KeyboardInterrupt:
 			main_thread = threading.main_thread()
 			for t in threading.enumerate():
