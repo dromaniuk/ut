@@ -235,14 +235,10 @@ class UT(object):
 
 	def chain(self,url,ref = "",deep=0):
 		try:
-			URL = urllib.parse.urlparse(url)
+			URL = urllib.parse.urlparse(url)._replace(params='',fragment='',query='')
 
 			if not isinstance(URL,urllib.parse.ParseResult):
 				return
-
-			URL = URL._replace(params='')
-			URL = URL._replace(fragment='')
-			URL = URL._replace(query='')
 
 			url = urllib.parse.urlunparse(URL)
 
@@ -283,6 +279,10 @@ class UT(object):
 						for link in soup.findAll("a"):
 							P = urllib.parse.urlparse(link.get('href'))._replace(params='',fragment='',query='')
 							if isinstance(P,urllib.parse.ParseResult):
+								if P.netloc == '':
+									P = P._replace(netloc=URL.netloc)
+								if P.scheme == '':
+									P = P._replace(scheme=URL.scheme)
 								pointer = urllib.parse.urlunparse(P)
 								if pointer not in self.visited and pointer not in self.queue:
 									external = True
