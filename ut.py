@@ -25,10 +25,11 @@ class UT(object):
 	deep = None
 	threads = cpu_count()+1
 	service_threads = 1
+	withexternal = False
 
 	def read_params(self,mainargs):
 		try:
-			opts, args = getopt.getopt(mainargs, "hvqsed:t:", ["help","verbose","quiet","diff","only-static","external-static","list"])
+			opts, args = getopt.getopt(mainargs, "hvqsed:t:", ["help","verbose","quiet","diff","only-static","external-static","list","with-external"])
 		except getopt.GetoptError as err:
 			print(err)
 			sys.exit(2)
@@ -54,6 +55,8 @@ class UT(object):
 				self.only_static = True
 			elif o in ("--external-static"):
 				self.external_static = True
+			elif o in ("--with-external"):
+				self.withexternal = True
 			elif o in ("--list"):
 				self.list_view = True
 
@@ -301,7 +304,7 @@ class UT(object):
 										if pointer not in self.visited:
 											self.visited.append(pointer)
 											self.external.append([pointer,ref])
-											if not self.quiet and self.verbose:
+											if not self.quiet and self.withexternal:
 												self.log(["","EXT",pointer,"(Ref:" + ref + ")"])
 
 					else:
