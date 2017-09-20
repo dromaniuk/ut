@@ -166,13 +166,13 @@ class UT(object):
 				mon_thread = threading.Thread(target=self.display)
 				mon_thread.start()
 			self.service_threads = threading.active_count()
-			while len(self.queue):
+			while True:
 				while threading.active_count()-self.service_threads < self.threads and len(self.queue) > 0:
 					url = self.queue.pop()
 					t = threading.Thread(name="Parsing " + url,target=self.chain, args=(url,))
 					t.start()
 
-				if threading.active_count()-self.service_threads < cpu_count():
+				if len(self.queue) == 0:
 					for t in threading.enumerate():
 						if t is main_thread:
 							continue
@@ -180,6 +180,7 @@ class UT(object):
 							if t is mon_thread:
 								continue
 						t.join()
+					if len(self.queue) == 0:
 						break
 				else:
 					time.sleep(.1)
