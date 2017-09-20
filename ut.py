@@ -114,7 +114,7 @@ class UT(object):
 
 	def display(self):
 		while len(threading.enumerate())-2 > 0 or len(self.queue) > 0:
-			sys.stdout.write("\rTreads: {0:2d}\tQueue: {1:4d}\tSucc: {2:4d}\tSkip: {3:4d}\tRedir: {4:4d}\tErr: {5:4d}".format(threading.active_count()-2,len(self.queue),len(self.successful),len(self.skipped),len(self.redirected),len(self.errored)))
+			sys.stdout.write("\rTrds: {0:2d}\tQueue: {1:2d}\tSucc: {2:2d}\tSkip: {3:2d}\tExt: {3:3d}\tRedir: {4:2d}\tErr: {5:2d}".format(threading.active_count()-self.service_threads,len(self.queue),len(self.successful),len(self.skipped),len(self.external),len(self.redirected),len(self.errored)))
 			sys.stdout.flush()
 			time.sleep(.5)
 
@@ -186,7 +186,7 @@ class UT(object):
 						continue
 				t.join()
 			self.queue = []
-			sys.stdout.write("\r" + " "*100 + "\rOperation Aborted\n")
+			sys.stdout.write("\r" + " "*120 + "\rOperation Aborted\n")
 			sys.stdout.flush()
 			main_thread = threading.main_thread()
 			for t in threading.enumerate():
@@ -205,7 +205,7 @@ class UT(object):
 						continue
 				t.join()
 
-			sys.stdout.write("\r" + " "*100 + "\r" )
+			sys.stdout.write("\r" + " "*120 + "\r" )
 			sys.stdout.flush()
 			if self.showsummary:
 				if len(self.successful):
