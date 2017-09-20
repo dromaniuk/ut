@@ -271,8 +271,9 @@ class UT(object):
 										if re.search('^(.*\.)?' + d, P.netloc):
 											self.queue.append([pointer,url])
 					else:
+						self.skipped.append([resp.status,resp.reason,mime,url,ref])
 						if self.verbose:
-							self.skipped.append([resp.status,resp.reason,mime,url,ref])
+							self.log([str(resp.status),'SKIP',url,"(Ref:" + ref + ")"])
 
 				elif resp.status//100 in (3, ):
 					location = resp.getheader("Location");
