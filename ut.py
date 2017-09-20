@@ -139,7 +139,6 @@ class UT(object):
 		for d in self.domains:
 			self.queue.append(["http://" + d + "/",''])
 			self.queue.append(["https://" + d + "/",''])
-		print(self.queue)
 
 		self.logfile = open(domaindir + time.strftime("%Y%m%d%H%M%S") + ".log","w")
 		if not self.list_view:
@@ -245,7 +244,7 @@ class UT(object):
 				conn.request("GET", URL.path)
 				resp = conn.getresponse()
 
-				if resp.status in (200, ):
+				if resp.status//100 in (2, ):
 					mime = resp.getheader("Content-Type")
 					if re.search('^text/html', mime):
 						self.successful.append([resp.status,resp.reason,url,ref])
@@ -264,14 +263,14 @@ class UT(object):
 					else:
 						self.skipped.append([resp.status,resp.reason,mime,url,ref])
 
-				elif resp.status in (301, 302):
+				elif resp.status//100 in (3, ):
 					location = resp.getheader("Location");
 					self.redirected.append([resp.status,resp.reason,url,location,ref])
 					self.queue.append([location,url])
 					if not self.quiet and self.verbose:
 						self.log([str(resp.status),resp.reason,url,"=> " + location,"(Ref:" + ref + ")"])
 
-				elif resp.status in (500, ):
+				elif resp.status//100 in (5, 4, ):
 					self.errored.append([resp.status,resp.reason,url,ref])
 				else:
 					print(str(resp.status) + "\t" + resp.reason)
