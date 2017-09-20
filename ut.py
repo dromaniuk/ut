@@ -100,7 +100,7 @@ class UT(object):
 				self.diff()
 			else:
 				assert False, "unhandled action"
-		except SystemExit:
+		except (SystemExit, BrokenPipeError):
 			pass
 		except Exception as e:
 			raise e
@@ -185,6 +185,8 @@ class UT(object):
 						break
 				else:
 					time.sleep(.1)
+		except BrokenPipeError:
+			pass
 		except KeyboardInterrupt:
 			sys.stdout.write("\r" + " "*120 + "\rOperation Aborted\n")
 			sys.stdout.flush()
@@ -235,7 +237,7 @@ class UT(object):
 		try:
 			ref, deep = self.urlmeta[url]
 
-			URL = urllib.parse.urlparse(url)._replace(params='',fragment='',query='')
+			URL = urllib.parse.urlparse(url)
 
 			if not isinstance(URL,urllib.parse.ParseResult):
 				return
@@ -255,12 +257,7 @@ class UT(object):
 				try:
 					conn.request("GET", URL.path)
 					resp = conn.getresponse()
-				except socket.gaierror as err:
-					self.errored.append(['[EXC]',str(err),url,ref])
-					if not self.quiet:
-						self.log(['[EXC]',str(err),url,"(Ref:" + ref + ")"])
-					return
-				except (ssl.SSLError, ssl.CertificateError) as err:
+				except (ssl.SSLError, ssl.CertificateError, ConnectionRefusedError, socket.gaierror) as err:
 					self.errored.append(['[EXC]',str(err),url,ref])
 					if not self.quiet:
 						self.log(['[EXC]',str(err),url,"(Ref:" + ref + ")"])
@@ -277,10 +274,16 @@ class UT(object):
 						html_page = resp.read()
 						soup = BeautifulSoup(html_page,'html.parser')
 						for link in soup.findAll("a"):
-							P = urllib.parse.urlparse(link.get('href'))._replace(params='',fragment='',query='')
+							if self.extended:
+								P = urllib.parse.urlparse(link.get('href'))._replace(params='',fragment='')
+							else:
+								P = urllib.parse.urlparse(link.get('href'))._replace(params='',fragment='',query='')
 							if isinstance(P,urllib.parse.ParseResult):
 								if P.netloc == '':
 									P = P._replace(netloc=URL.netloc)
+									res = re.match('\.(/.*)',P.path)
+									if res:
+										P = P._replace(path=res.group(1))
 								if P.scheme == '':
 									P = P._replace(scheme=URL.scheme)
 								pointer = urllib.parse.urlunparse(P)
@@ -321,7 +324,7 @@ class UT(object):
 				else:
 					print(str(resp.status) + "\t" + resp.reason)
 					return
-		except KeyboardInterrupt:
+		except (KeyboardInterrupt,BrokenPipeError):
 			pass
 		except http.client.BadStatusLine:
 			self.errored.append(["ERROR","BadStatusLine",url,ref])
