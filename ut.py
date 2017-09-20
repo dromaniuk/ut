@@ -250,7 +250,7 @@ class UT(object):
 					mime = resp.getheader("Content-Type")
 					if re.search('^text/html', mime):
 						self.successful.append([resp.status,resp.reason,url,ref])
-						if not self.quiet:
+						if not self.quiet and self.verbose:
 							self.log([str(resp.status),resp.reason,url,"(Ref:" + ref + ")"])
 						html_page = resp.read()
 						soup = BeautifulSoup(html_page,'html.parser')
@@ -275,7 +275,8 @@ class UT(object):
 
 				elif resp.status//100 in (5, 4, ):
 					self.errored.append([resp.status,resp.reason,url,ref])
-					self.log([str(resp.status),resp.reason,url,"(Ref:" + ref + ")"])
+					if not self.quiet:
+						self.log([str(resp.status),resp.reason,url,"(Ref:" + ref + ")"])
 				else:
 					print(str(resp.status) + "\t" + resp.reason)
 					return
