@@ -157,7 +157,8 @@ class UT(object):
 			self.service_threads = threading.active_count()
 			while len(self.queue):
 				while threading.active_count()-self.service_threads < self.threads and len(self.queue) > 0:
-					t = threading.Thread(target=self.chain, args=self.queue.pop())
+					q = self.queue.pop()
+					t = threading.Thread(name="Parsing " + q[0],target=self.chain, args=q)
 					t.start()
 
 				if threading.active_count()-2 < cpu_count():
