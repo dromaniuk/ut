@@ -5,7 +5,7 @@ from urllib.request import urlopen, Request
 from multiprocessing import cpu_count
 import urllib.parse
 import http.client
-import re, sys, os, getopt, time, pprint, datetime, base64, threading
+import re, sys, os, getopt, time, pprint, datetime, base64, threading, ssl
 
 class UT(object):
 	"""docstring for UT"""
@@ -22,12 +22,13 @@ class UT(object):
 	external_static = False
 	list_view = False
 	showsummary = False
-	threads = cpu_count()+2
-	deep = 0
+	deep = None
+	threads = cpu_count()+1
+	service_threads = 1
 
 	def read_params(self,mainargs):
 		try:
-			opts, args = getopt.getopt(mainargs, "hvqsedt:", ["help","verbose","quiet","diff","only-static","external-static","list"])
+			opts, args = getopt.getopt(mainargs, "hvqsed:t:", ["help","verbose","quiet","diff","only-static","external-static","list"])
 		except getopt.GetoptError as err:
 			print(err)
 			sys.exit(2)
@@ -153,8 +154,9 @@ class UT(object):
 			if self.quiet:
 				mon_thread = threading.Thread(target=self.display)
 				mon_thread.start()
+			self.service_threads = threading.active_count()
 			while len(self.queue):
-				while threading.active_count()-2 < self.threads and len(self.queue) > 0:
+				while threading.active_count()-self.service_threads < self.threads and len(self.queue) > 0:
 					t = threading.Thread(target=self.chain, args=self.queue.pop())
 					t.start()
 
@@ -250,18 +252,26 @@ class UT(object):
 				if URL.scheme == 'http':
 					conn = http.client.HTTPConnection(URL.netloc)
 				elif URL.scheme == 'https':
-					conn = http.client.HTTPSConnection(URL.netloc)
+						conn = http.client.HTTPSConnection(URL.netloc)
 				else:
 					return
 
-				conn.request("GET", URL.path)
-				resp = conn.getresponse()
+				try:
+					conn.request("GET", URL.path)
+					resp = conn.getresponse()
+				except ssl.SSLError:
+					self.errored.append(['',"SSL Error",url,ref])
+					if not self.quiet:
+						self.log(['',"SSL Error",url,"(Ref:" + ref + ")"])
+					return
+				except:
+					raise
 
-				if resp.status in (200, ):
+				if resp.status//100 in (2, ):
 					mime = resp.getheader("Content-Type")
 					if re.search('^text/html', mime):
 						self.successful.append([resp.status,resp.reason,url,ref])
-						if not self.quiet:
+						if not self.quiet and self.verbose:
 							self.log([str(resp.status),resp.reason,url,"(Ref:" + ref + ")"])
 						html_page = resp.read()
 						soup = BeautifulSoup(html_page,'html.parser')
@@ -273,30 +283,35 @@ class UT(object):
 									external = True
 									for d in self.domains:
 										if re.search('^(.*\.)?' + d, P.netloc):
-											if self.deep == 0 or self.deep >= deep:
+											external = False
+											if self.deep is None or deep < self.deep:
+												print(str(deep) + ":" + str(self.deep))
 												self.queue.append([pointer,url,deep+1])
-												external = False
+											else:
+												self.log(["","SKIP",pointer,"(Ref:" + ref + ")"])
 									if external:
 										if pointer not in self.visited:
 											self.visited.append(pointer)
 											self.external.append([pointer,ref])
 											if not self.quiet and self.verbose:
-												self.log(["","SKIP",pointer,"(Ref:" + ref + ")"])
+												self.log(["","EXT",pointer,"(Ref:" + ref + ")"])
 
 					else:
 						self.skipped.append([resp.status,resp.reason,mime,url,ref])
 						if not self.quiet and self.verbose:
-							self.log([str(resp.status),"SKIP",url,"(Ref:" + ref + ")"])
+							self.log([str(resp.status),"NonHTML",url,"(Ref:" + ref + ")"])
 
-				elif resp.status in (301, 302):
+				elif resp.status//100 in (3, ):
 					location = resp.getheader("Location");
 					self.redirected.append([resp.status,resp.reason,url,location,ref])
 					self.queue.append([location,url,deep])
 					if not self.quiet and self.verbose:
 						self.log([str(resp.status),resp.reason,url,"=> " + location,"(Ref:" + ref + ")"])
 
-				elif resp.status in (500, ):
+				elif resp.status//100 in (5, 4, ):
 					self.errored.append([resp.status,resp.reason,url,ref])
+					if not self.quiet:
+						self.log([str(resp.status),resp.reason,url,"(Ref:" + ref + ")"])
 				else:
 					print(str(resp.status) + "\t" + resp.reason)
 					return
