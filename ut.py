@@ -22,7 +22,8 @@ class UT(object):
 	external_static = False
 	list_view = False
 	showsummary = False
-	threads = cpu_count()*2
+	threads = cpu_count()+1
+	service_threads = 1
 
 	def read_params(self,mainargs):
 		try:
@@ -149,8 +150,9 @@ class UT(object):
 			if self.quiet:
 				mon_thread = threading.Thread(target=self.display)
 				mon_thread.start()
+			self.service_threads = threading.active_count()
 			while len(self.queue):
-				while threading.active_count()-2 < self.threads and len(self.queue) > 0:
+				while threading.active_count()-self.service_threads < self.threads and len(self.queue) > 0:
 					t = threading.Thread(target=self.chain, args=self.queue.pop())
 					t.start()
 
