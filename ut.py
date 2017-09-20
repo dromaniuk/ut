@@ -114,7 +114,7 @@ class UT(object):
 
 	def display(self):
 		while self.mon_thread_enabled:
-			sys.stdout.write("\rTrds: {0:2d}\tQueue: {1:2d}\tSucc: {2:2d}\tSkip: {3:2d}\tExt: {3:3d}\tRedir: {4:2d}\tErr: {5:2d}".format(threading.active_count()-self.service_threads,len(self.queue),len(self.successful),len(self.skipped),len(self.external),len(self.redirected),len(self.errored)))
+			sys.stdout.write("\rTrds: {0:2d}\tQueue: {1:2d}\tSucc: {2:2d}\tSkip: {3:2d}\tExt: {4:3d}\tRedir: {5:2d}\tErr: {6:3d}\tTrb: {7:2d}".format(threading.active_count()-self.service_threads,len(self.queue),len(self.successful),len(self.skipped),len(self.external),len(self.redirected),len(self.errored),len(self.troubled)))
 			sys.stdout.flush()
 			time.sleep(.5)
 
@@ -147,6 +147,7 @@ class UT(object):
 		self.successful = []
 		self.redirected = []
 		self.errored = []
+		self.troubled = []
 
 		self.skipped = []
 		self.external = []
@@ -223,6 +224,11 @@ class UT(object):
 					self.log(["Errored:"])
 					for status, reason, url, ref in self.errored:
 						self.log([str(status),reason,url,"(Ref:" + ref + ")"])
+				if len(self.troubled):
+					self.log()
+					self.log(["Troubled:"])
+					for reason, url, ref in self.troubled:
+						self.log([reason,url,"(Ref:" + ref + ")"])
 			self.log()
 			if len(self.successful):
 				self.log(["Success:",str(len(self.successful))])
@@ -230,6 +236,8 @@ class UT(object):
 				self.log(["Redirected:",str(len(self.redirected))])
 			if len(self.errored):
 				self.log(["Errored:",str(len(self.errored))])
+			if len(self.troubled):
+				self.log(["Troubled:",str(len(self.troubled))])
 			if len(self.skipped):
 				self.log(["Skipped:",str(len(self.skipped))])
 			if len(self.external):
@@ -256,16 +264,8 @@ class UT(object):
 				else:
 					return
 
-				try:
-					conn.request("GET", URL.path)
-					resp = conn.getresponse()
-				except (ssl.SSLError, ssl.CertificateError, ConnectionRefusedError, socket.gaierror) as err:
-					self.errored.append(['[EXC]',str(err),url,ref])
-					if not self.quiet:
-						self.log(['[EXC]',str(err),url,"(Ref:" + ref + ")"])
-					return
-				except:
-					raise
+				conn.request("GET", URL.path)
+				resp = conn.getresponse()
 
 				if resp.status//100 in (2, ):
 					mime = resp.getheader("Content-Type")
@@ -328,8 +328,10 @@ class UT(object):
 					return
 		except (KeyboardInterrupt,BrokenPipeError):
 			pass
-		except http.client.BadStatusLine:
-			self.errored.append(["ERROR","BadStatusLine",url,ref])
+		except (http.client.BadStatusLine, ssl.SSLError, ssl.CertificateError, ConnectionRefusedError, socket.gaierror) as err:
+			self.troubled.append([str(err),url,ref])
+			if not self.quiet:
+				self.log([str(err),url,"(Ref:" + ref + ")"])
 		except UnicodeEncodeError:
 			print("UnicodeEncodeError: " +URL.netloc + " " + URL.path)
 		except:
