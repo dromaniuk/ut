@@ -124,6 +124,10 @@ class UT(object):
 		except:
 			os.mkdir(directory)	   
 
+	def queue_push(self,url,ref,deep):
+		self.queue.add(url)
+		self.urlmeta[url] = (ref,deep)
+
 	def scan(self):
 		global workdir, cachedir, domaindir
 
@@ -135,18 +139,21 @@ class UT(object):
 
 		self.datesuffix = base64.b64encode(time.strftime("%Y-%m-%d %H:%M:%S").encode("ascii"))
 
+		self.urlmeta = {}
+		self.queue = set()
+		self.known = []
 		self.visited = []
-		self.visited_external = []
-		self.queue = []
+
 		self.successful = []
-		self.skipped = []
-		self.errored = []
 		self.redirected = []
+		self.errored = []
+
+		self.skipped = []
 		self.external = []
 
 		for d in self.domains:
-			self.queue.append(["http://" + d + "/",'',0])
-			self.queue.append(["https://" + d + "/",'',0])
+			self.queue_push("http://" + d + "/",'',0)
+			self.queue_push("https://" + d + "/",'',0)
 
 		self.logfile = open(domaindir + time.strftime("%Y%m%d%H%M%S") + ".log","w")
 		if not self.list_view:
@@ -161,11 +168,11 @@ class UT(object):
 			self.service_threads = threading.active_count()
 			while len(self.queue):
 				while threading.active_count()-self.service_threads < self.threads and len(self.queue) > 0:
-					q = self.queue.pop()
-					t = threading.Thread(name="Parsing " + q[0],target=self.chain, args=q)
+					url = self.queue.pop()
+					t = threading.Thread(name="Parsing " + url,target=self.chain, args=(url,))
 					t.start()
 
-				if threading.active_count()-2 < cpu_count():
+				if threading.active_count()-self.service_threads < cpu_count():
 					for t in threading.enumerate():
 						if t is main_thread:
 							continue
@@ -238,8 +245,10 @@ class UT(object):
 			if len(self.errored):
 				self.log(["Errored:",str(len(self.errored))])
 
-	def chain(self,url,ref = "",deep=0):
+	def chain(self,url):
 		try:
+			ref, deep = self.urlmeta[url]
+
 			URL = urllib.parse.urlparse(url)._replace(params='',fragment='',query='')
 
 			if not isinstance(URL,urllib.parse.ParseResult):
@@ -295,7 +304,7 @@ class UT(object):
 										if re.search('^(.*\.)?' + d, P.netloc):
 											external = False
 											if self.deep is None or deep < self.deep:
-												self.queue.append([pointer,url,deep+1])
+												self.queue_push(pointer,url,deep+1)
 											else:
 												if pointer not in self.visited:
 													self.visited.append(pointer)
@@ -315,7 +324,7 @@ class UT(object):
 				elif resp.status//100 in (3, ):
 					location = resp.getheader("Location");
 					self.redirected.append([resp.status,resp.reason,url,location,ref])
-					self.queue.append([location,url,deep])
+					self.queue_push(location,url,deep)
 					if not self.quiet and self.verbose:
 						self.log([str(resp.status),resp.reason,url,"=> " + location,"(Ref:" + ref + ")"])
 
