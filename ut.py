@@ -5,7 +5,7 @@ from urllib.request import urlopen, Request
 from multiprocessing import cpu_count
 import urllib.parse
 import http.client
-import re, sys, os, getopt, time, pprint, datetime, base64, threading
+import re, sys, os, getopt, time, pprint, datetime, base64, threading, ssl
 
 class UT(object):
 	"""docstring for UT"""
@@ -239,20 +239,20 @@ class UT(object):
 				if URL.scheme == 'http':
 					conn = http.client.HTTPConnection(URL.netloc)
 				elif URL.scheme == 'https':
-					try:
 						conn = http.client.HTTPSConnection(URL.netloc)
-					except ssl.SSLError:
-						self.errored.append(['None',"SSL Error",url,ref])
-						if not self.quiet:
-							self.log(['None',"SSL Error",url,"(Ref:" + ref + ")"])
-						return
-					except:
-						raise
 				else:
 					return
 
-				conn.request("GET", URL.path)
-				resp = conn.getresponse()
+				try:
+					conn.request("GET", URL.path)
+					resp = conn.getresponse()
+				except ssl.SSLError:
+					self.errored.append(['',"SSL Error",url,ref])
+					if not self.quiet:
+						self.log(['',"SSL Error",url,"(Ref:" + ref + ")"])
+					return
+				except:
+					raise
 
 				if resp.status//100 in (2, ):
 					mime = resp.getheader("Content-Type")
