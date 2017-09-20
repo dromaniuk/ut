@@ -285,10 +285,11 @@ class UT(object):
 										if re.search('^(.*\.)?' + d, P.netloc):
 											external = False
 											if self.deep is None or deep < self.deep:
-												print(str(deep) + ":" + str(self.deep))
 												self.queue.append([pointer,url,deep+1])
 											else:
-												self.log(["","SKIP",pointer,"(Ref:" + ref + ")"])
+												if pointer not in self.visited:
+													self.visited.append(pointer)
+													self.log(["","SKIP",pointer,"(Ref:" + ref + ")"])
 									if external:
 										if pointer not in self.visited:
 											self.visited.append(pointer)
