@@ -147,7 +147,8 @@ class UT(object):
 
 		self.logfile = open(domaindir + time.strftime("%Y%m%d%H%M%S") + ".log","w")
 		if not self.list_view:
-			self.log(["Domain:",self.domain])
+			self.log(["Domain: ",self.domain])
+			self.log(["Threads: ",str(self.threads)])
 
 		try:
 			main_thread = threading.main_thread()
