@@ -22,11 +22,12 @@ class UT(object):
 	external_static = False
 	list_view = False
 	showsummary = False
-	threads = cpu_count()*2
+	threads = cpu_count()+2
+	deep = 0
 
 	def read_params(self,mainargs):
 		try:
-			opts, args = getopt.getopt(mainargs, "hvqsert:", ["help","verbose","quiet","diff","only-static","external-static","list"])
+			opts, args = getopt.getopt(mainargs, "hvqsedt:", ["help","verbose","quiet","diff","only-static","external-static","list"])
 		except getopt.GetoptError as err:
 			print(err)
 			sys.exit(2)
@@ -46,6 +47,8 @@ class UT(object):
 				self.showsummary = True
 			elif o in ("-t"):
 				self.threads = int(a)
+			elif o in ("-d"):
+				self.deep = int(a)
 			elif o in ("--only-static"):
 				self.only_static = True
 			elif o in ("--external-static"):
@@ -135,11 +138,11 @@ class UT(object):
 		self.skipped = []
 		self.errored = []
 		self.redirected = []
+		self.external = []
 
 		for d in self.domains:
-			self.queue.append(["http://" + d + "/",''])
-			self.queue.append(["https://" + d + "/",''])
-		print(self.queue)
+			self.queue.append(["http://" + d + "/",'',0])
+			self.queue.append(["https://" + d + "/",'',0])
 
 		self.logfile = open(domaindir + time.strftime("%Y%m%d%H%M%S") + ".log","w")
 		if not self.list_view:
@@ -186,6 +189,15 @@ class UT(object):
 		except:
 			raise
 		finally:
+			main_thread = threading.main_thread()
+			for t in threading.enumerate():
+				if t is main_thread:
+					continue
+				if self.quiet:
+					if t is mon_thread:
+						continue
+				t.join()
+
 			sys.stdout.write("\r" + " "*100 + "\r" )
 			sys.stdout.flush()
 			if self.showsummary:
@@ -219,7 +231,7 @@ class UT(object):
 			if len(self.errored):
 				self.log(["Errored:",str(len(self.errored))])
 
-	def chain(self,url,ref = ""):
+	def chain(self,url,ref = "",deep=0):
 		try:
 			URL = urllib.parse.urlparse(url)
 
@@ -258,16 +270,28 @@ class UT(object):
 							if isinstance(P,urllib.parse.ParseResult):
 								pointer = urllib.parse.urlunparse(P)
 								if pointer not in self.visited and pointer not in self.queue:
+									external = True
 									for d in self.domains:
 										if re.search('^(.*\.)?' + d, P.netloc):
-											self.queue.append([pointer,url])
+											if self.deep == 0 or self.deep >= deep:
+												self.queue.append([pointer,url,deep+1])
+												external = False
+									if external:
+										if pointer not in self.visited:
+											self.visited.append(pointer)
+											self.external.append([pointer,ref])
+											if not self.quiet and self.verbose:
+												self.log(["","SKIP",pointer,"(Ref:" + ref + ")"])
+
 					else:
 						self.skipped.append([resp.status,resp.reason,mime,url,ref])
+						if not self.quiet and self.verbose:
+							self.log([str(resp.status),"SKIP",url,"(Ref:" + ref + ")"])
 
 				elif resp.status in (301, 302):
 					location = resp.getheader("Location");
 					self.redirected.append([resp.status,resp.reason,url,location,ref])
-					self.queue.append([location,url])
+					self.queue.append([location,url,deep])
 					if not self.quiet and self.verbose:
 						self.log([str(resp.status),resp.reason,url,"=> " + location,"(Ref:" + ref + ")"])
 
