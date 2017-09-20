@@ -113,7 +113,7 @@ class UT(object):
 		self.logfile.write("\t".join(msg) + "\n")
 
 	def display(self):
-		while len(threading.enumerate())-2 > 0 or len(self.queue) > 0:
+		while self.mon_thread_enabled:
 			sys.stdout.write("\rTrds: {0:2d}\tQueue: {1:2d}\tSucc: {2:2d}\tSkip: {3:2d}\tExt: {3:3d}\tRedir: {4:2d}\tErr: {5:2d}".format(threading.active_count()-self.service_threads,len(self.queue),len(self.successful),len(self.skipped),len(self.external),len(self.redirected),len(self.errored)))
 			sys.stdout.flush()
 			time.sleep(.5)
@@ -161,6 +161,7 @@ class UT(object):
 			self.log(["Threads: ",str(self.threads)])
 
 		try:
+			self.mon_thread_enabled = True
 			main_thread = threading.main_thread()
 			if self.quiet:
 				mon_thread = threading.Thread(target=self.display)
@@ -185,32 +186,16 @@ class UT(object):
 				else:
 					time.sleep(.1)
 		except KeyboardInterrupt:
-			main_thread = threading.main_thread()
-			for t in threading.enumerate():
-				if t is main_thread:
-					continue
-				if self.quiet:
-					if t is mon_thread:
-						continue
-				t.join()
-			self.queue = []
 			sys.stdout.write("\r" + " "*120 + "\rOperation Aborted\n")
 			sys.stdout.flush()
-			main_thread = threading.main_thread()
-			for t in threading.enumerate():
-				if t is main_thread:
-					continue
-				t.join()
 		except:
 			raise
 		finally:
+			self.mon_thread_enabled = False
 			main_thread = threading.main_thread()
 			for t in threading.enumerate():
 				if t is main_thread:
 					continue
-				if self.quiet:
-					if t is mon_thread:
-						continue
 				t.join()
 
 			sys.stdout.write("\r" + " "*120 + "\r" )
