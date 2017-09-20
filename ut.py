@@ -261,10 +261,10 @@ class UT(object):
 					if not self.quiet:
 						self.log(['[EXC]',str(err),url,"(Ref:" + ref + ")"])
 					return
-				except ssl.SSLError:
-					self.errored.append(['',"SSL Error",url,ref])
+				except (ssl.SSLError, ssl.CertificateError) as err:
+					self.errored.append(['[EXC]',str(err),url,ref])
 					if not self.quiet:
-						self.log(['[EXC]',"SSL Error",url,"(Ref:" + ref + ")"])
+						self.log(['[EXC]',str(err),url,"(Ref:" + ref + ")"])
 					return
 				except:
 					raise
