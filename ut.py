@@ -226,12 +226,14 @@ class UT(object):
 			self.log()
 			if len(self.successful):
 				self.log(["Success:",str(len(self.successful))])
-			if len(self.skipped):
-				self.log(["Skipped:",str(len(self.skipped))])
 			if len(self.redirected):
 				self.log(["Redirected:",str(len(self.redirected))])
 			if len(self.errored):
 				self.log(["Errored:",str(len(self.errored))])
+			if len(self.skipped):
+				self.log(["Skipped:",str(len(self.skipped))])
+			if len(self.external):
+				self.log(["External:",str(len(self.external))])
 
 	def chain(self,url):
 		try:
