@@ -239,7 +239,15 @@ class UT(object):
 				if URL.scheme == 'http':
 					conn = http.client.HTTPConnection(URL.netloc)
 				elif URL.scheme == 'https':
-					conn = http.client.HTTPSConnection(URL.netloc)
+					try:
+						conn = http.client.HTTPSConnection(URL.netloc)
+					except ssl.SSLError:
+						self.errored.append(['None',"SSL Error",url,ref])
+						if not self.quiet:
+							self.log(['None',"SSL Error",url,"(Ref:" + ref + ")"])
+						return
+					except:
+						raise
 				else:
 					return
 
