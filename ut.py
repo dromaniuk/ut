@@ -26,10 +26,11 @@ class UT(object):
 	threads = cpu_count()+1
 	service_threads = 1
 	withexternal = False
+	withmixed = False
 
 	def read_params(self,mainargs):
 		try:
-			opts, args = getopt.getopt(mainargs, "hvqsed:t:", ["help","verbose","quiet","diff","only-static","external-static","list","with-external"])
+			opts, args = getopt.getopt(mainargs, "hvqsed:t:", ["help","verbose","quiet","diff","only-static","external-static","list","with-external","with-mixed"])
 		except getopt.GetoptError as err:
 			print(err)
 			sys.exit(2)
@@ -57,6 +58,8 @@ class UT(object):
 				self.external_static = True
 			elif o in ("--with-external"):
 				self.withexternal = True
+			elif o in ("--with-mixed"):
+				self.withmixed = True
 			elif o in ("--list"):
 				self.list_view = True
 
@@ -151,6 +154,7 @@ class UT(object):
 
 		self.skipped = []
 		self.external = []
+		self.mixedcontent = []
 
 		for d in self.domains:
 			self.queue_push("http://" + d + "/",'',0)
@@ -238,6 +242,8 @@ class UT(object):
 				self.log(["Errored:",str(len(self.errored))])
 			if len(self.troubled):
 				self.log(["Troubled:",str(len(self.troubled))])
+			if len(self.mixedcontent):
+				self.log(["Mixed:",str(len(self.mixedcontent))])
 			if len(self.skipped):
 				self.log(["Skipped:",str(len(self.skipped))])
 			if len(self.external):
@@ -306,6 +312,13 @@ class UT(object):
 											self.external.append([pointer,ref])
 											if not self.quiet and self.withexternal:
 												self.log(["","EXT",pointer,"(Ref:" + ref + ")"])
+						for img in soup.findAll("img"):
+							P = urllib.parse.urlparse(link.get('src'))._replace(params='',fragment='')
+							if P.scheme in ('http','https') and P.scheme != URL.scheme:
+								pointer = urllib.parse.urlunparse(P)
+								self.mixedcontent.append([pointer,ref])
+								if not self.quiet and self.withmixed:
+									self.log(["","MIX",pointer,"(Ref:" + ref + ")"])
 
 					else:
 						self.skipped.append([resp.status,resp.reason,mime,url,ref])
