@@ -270,7 +270,7 @@ class UT(object):
 				else:
 					return
 
-				conn.request("GET", URL.path)
+				conn.request("GET", URL.path, None, {'User-Agent':'Hadornbot'})
 				resp = conn.getresponse()
 
 				if resp.status//100 in (2, ):
