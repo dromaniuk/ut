@@ -101,6 +101,7 @@ class UT(object):
 				else:
 					logging.warning("Unsupported protocol %s",D.scheme)
 					continue
+
 		else:
 			assert False, "wrong input parameters"
 
@@ -184,9 +185,6 @@ class UT(object):
 			self.suredir(self.domaindir)
 
 		logging.debug("Creating sets")
-		self.urlmeta = {}
-		self.queue = set()
-		self.processed = set()
 
 		self.successful = set()
 		self.redirected = set()
@@ -202,14 +200,6 @@ class UT(object):
 		self.crossdomain = set()
 		self.crossprotocol = set()
 		self.sitecontent = set()
-
-		logging.debug("Adding domains")
-		for d in self.domains:
-			logging.info("Domain %s", d)
-			self.push("http://" + d + "/",'',0)
-			self.push("https://" + d + "/",'',0)
-			self.internal.add("http://" + d + "/")
-			self.internal.add("https://" + d + "/")
 
 		logging.debug("Printing startup info")
 		print("Logfile: " + os.path.abspath(self.logfile))
@@ -238,8 +228,9 @@ class UT(object):
 						logging.debug("%s is not valid url. Skipping")
 						continue
 
-					t = threading.Thread(name="Parsing " + url,target=self.chain, args=(url,ref,deep))
-					t.start()
+					if self.deep is None or self.deep >= deep:
+						t = threading.Thread(name="Parsing " + url,target=self.chain, args=(url,ref,deep))
+						t.start()
 
 				if len(self.queue) == 0:
 					logging.debug("Queue empty. Syncronizing threads")
