@@ -35,12 +35,14 @@ class UT(object):
 	deep = None
 	threads = cpu_count()+1
 	service_threads = 1
+	withcrossprotocol = False
+	withcontent = False
 	withexternal = False
 	withmixedcontent = False
 
 	def read_params(self,mainargs):
 		try:
-			opts, args = getopt.getopt(mainargs, "hvqsed:t:", ["help","verbose","quiet","only-static","external-static","list","with-external","with-mixed"])
+			opts, args = getopt.getopt(mainargs, "hvqsed:t:", ["help","verbose","quiet","only-static","external-static","list","with-external","mixed","content","crossprotocol"])
 		except getopt.GetoptError as err:
 			print(err)
 			sys.exit(2)
@@ -282,19 +284,12 @@ class UT(object):
 			elif URL.scheme == 'https':
 				logging.debug("[%s] Scheme %s",url,URL.scheme)
 				conn = http.client.HTTPSConnection(URL.netloc)
-			elif URL.scheme == 'mailto':
-				logging.debug("[%s] Scheme %s",url,URL.scheme)
-				print('mailto',URL)
-				return
-			elif URL.scheme == 'tel':
-				logging.debug("[%s] Scheme %s",url,URL.scheme)
-				print('tel',URL)
-				return
 			else:
+				logging.debug("[%s] Scheme %s. Skipping",url,URL.scheme)
 				return
 
 			logging.debug("[%s] Requesting %s for the page %s",url,URL.netloc,URL.path)
-			conn.request("GET", URL.path)
+			conn.request("GET", urllib.parse.quote(URL.path))
 			resp = conn.getresponse()
 
 			logging.debug("[%s] %d %s",url,resp.status,resp.reason)
@@ -321,52 +316,62 @@ class UT(object):
 			logging.error("[%s] %s",url,trouble)
 			if not self.quiet:
 				print("\t".join([str(err),url,"(Ref:" + ref + ")"]))
-		except UnicodeEncodeError:
+		except UnicodeEncodeError as e:
 			print("UnicodeEncodeError: " +URL.netloc + " " + URL.path)
+			# raise e
 		except:
 			raise
 		finally:
 			if set([url]).issubset(self.successful):
 				if set([url]).issubset(self.internal):
-					if set([url]).issubset(self.sitecontent):
+					if set([url]).issubset(self.sitecontent | self.skipped):
 						logging.info("%d\t%s\tInternal HTML\t%s\t(Ref: %s)",resp.status,resp.reason,url,ref)
-						if not self.quiet and self.verbose and self.withcontent:
-							print("\t".join([str(self.urlmeta[url]['status']),self.urlmeta[url]['reason'],"*In/cont*",url,"(Ref: "+ref+")"]))
+						if not self.quiet:
+							if self.verbose or self.withcontent:
+								print("\t".join([str(self.urlmeta[url]['status']),self.urlmeta[url]['reason'],"*In/cont*",url,"(Ref: "+ref+")"]))
 					else:
 						logging.info("%d\t%s\tInternal Content\t%s\t(Ref: %s)",resp.status,resp.reason,url,ref)
-						if not self.quiet and self.verbose:
-							print("\t".join([str(self.urlmeta[url]['status']),self.urlmeta[url]['reason'],"*In/HTML*",url,"(Ref: "+ref+")"]))
+						if not self.quiet:
+							if self.verbose:
+								print("\t".join([str(self.urlmeta[url]['status']),self.urlmeta[url]['reason'],"*In/HTML*",url,"(Ref: "+ref+")"]))
 				elif set([url]).issubset(self.crossdomain):
-					if set([url]).issubset(self.sitecontent):
+					if set([url]).issubset(self.sitecontent | self.skipped):
 						logging.info("%d\t%s\tCrossdomain HTML\t%s\t(Ref: %s)",resp.status,resp.reason,url,ref)
-						if not self.quiet and self.verbose and self.withcontent:
-							print("\t".join([str(self.urlmeta[url]['status']),self.urlmeta[url]['reason'],"*Cr/cont*",url,"(Ref: "+ref+")"]))
+						if not self.quiet:
+							if self.verbose or self.withcontent:
+								print("\t".join([str(self.urlmeta[url]['status']),self.urlmeta[url]['reason'],"*Cr/cont*",url,"(Ref: "+ref+")"]))
 					else:
 						logging.info("%d\t%s\tCrossdomain Content\t%s\t(Ref: %s)",resp.status,resp.reason,url,ref)
-						if not self.quiet and self.verbose:
-							print("\t".join([str(self.urlmeta[url]['status']),self.urlmeta[url]['reason'],"*Cr/HTML*",url,"(Ref: "+ref+")"]))
+						if not self.quiet:
+							if self.verbose:
+								print("\t".join([str(self.urlmeta[url]['status']),self.urlmeta[url]['reason'],"*Cr/HTML*",url,"(Ref: "+ref+")"]))
 				elif set([url]).issubset(self.external):
-					if set([url]).issubset(self.sitecontent):
+					if set([url]).issubset(self.sitecontent | self.skipped):
 						logging.info("%d\t%s\tExternal HTML\t%s\t(Ref: %s)",resp.status,resp.reason,url,ref)
-						if not self.quiet and self.verbose and self.withcontent:
-							print("\t".join([str(self.urlmeta[url]['status']),self.urlmeta[url]['reason'],"*Ex/cont*",url,"(Ref: "+ref+")"]))
+						if not self.quiet:
+							if self.verbose or self.withcontent:
+								print("\t".join([str(self.urlmeta[url]['status']),self.urlmeta[url]['reason'],"*Ex/cont*",url,"(Ref: "+ref+")"]))
 					else:
 						logging.info("%d\t%s\tExternal Content\t%s\t(Ref: %s)",resp.status,resp.reason,url,ref)
-						if not self.quiet and self.verbose:
-							print("\t".join([str(self.urlmeta[url]['status']),self.urlmeta[url]['reason'],"*Ex/HTML*",url,"(Ref: "+ref+")"]))
+						if not self.quiet:
+							if self.verbose:
+								print("\t".join([str(self.urlmeta[url]['status']),self.urlmeta[url]['reason'],"*Ex/HTML*",url,"(Ref: "+ref+")"]))
 				else:
-					if set([url]).issubset(self.sitecontent):
+					if set([url]).issubset(self.sitecontent | self.skipped):
 						logging.info("%d\t%s\tUnknown HTML\t%s\t(Ref: %s)",resp.status,resp.reason,url,ref)
-						if not self.quiet and self.verbose and self.withcontent:
-							print("\t".join([str(self.urlmeta[url]['status']),self.urlmeta[url]['reason'],"*Un/cont*",url,"(Ref: "+ref+")"]))
+						if not self.quiet:
+							if self.verbose or self.withcontent:
+								print("\t".join([str(self.urlmeta[url]['status']),self.urlmeta[url]['reason'],"*Un/cont*",url,"(Ref: "+ref+")"]))
 					else:
 						logging.info("%d\t%s\tUnknown Content\t%s\t(Ref: %s)",resp.status,resp.reason,url,ref)
-						if not self.quiet and self.verbose:
-							print("\t".join([str(self.urlmeta[url]['status']),self.urlmeta[url]['reason'],"*UN/cont*",url,"(Ref: "+ref+")"]))
+						if not self.quiet:
+							if self.verbose:
+								print("\t".join([str(self.urlmeta[url]['status']),self.urlmeta[url]['reason'],"*Un/HTML*",url,"(Ref: "+ref+")"]))
 			if set([url]).issubset(self.redirected):
 				logging.info("%d\t%s\tRedirect\t%s => %s\t(Ref: %s)",resp.status,resp.reason,url,self.urlmeta[url]['location'],ref)
-				if not self.quiet and self.verbose:
-					print("\t".join([str(self.urlmeta[url]['status']),self.urlmeta[url]['reason'],url,"=>",self.urlmeta[url]['location'],"(Ref: "+ref+")"]))
+				if not self.quiet:
+					if self.verbose:
+						print("\t".join([str(self.urlmeta[url]['status']),self.urlmeta[url]['reason'],url,"=>",self.urlmeta[url]['location'],"(Ref: "+ref+")"]))
 			if set([url]).issubset(self.notfound):
 				logging.warning("%d\t%s\t%s\t(Ref: %s)",resp.status,resp.reason,url,ref)
 				if not self.quiet:
@@ -404,19 +409,25 @@ class UT(object):
 			if not self.extended:
 				P = P._replace(query='')
 			if isinstance(P,urllib.parse.ParseResult):
-				pointer = self.prepare_url(P,url,URL)
+				pointer, P = self.prepare_url(P,url,URL)
 				logging.debug("[%s] Found link %s",url,pointer)
 				self.url(url,URL,ref,deep,P,pointer)
 
 	def prepare_url(self,P,url,URL):
-		if P.netloc == '':
-			P = P._replace(netloc=URL.netloc)
-			res = re.match('\.(/.*)',P.path)
-			if res:
-				P = P._replace(path=res.group(1))
-		if P.scheme == '':
+		if set([P.scheme]).issubset(set(['',])):
 			P = P._replace(scheme=URL.scheme)
-		return urllib.parse.urlunparse(P)
+
+		if set([P.scheme]).issubset(set(['http','https'])):
+			if P.netloc == '':
+				P = P._replace(netloc=URL.netloc)
+				res = re.match('\.(/.*)',P.path)
+				if res:
+					P = P._replace(path=res.group(1))
+
+			if P.path.find("\n") >= 0:
+				P = P._replace(path=P.path.replace("\n",""))
+	
+		return urllib.parse.urlunparse(P), P
 
 	def url(self,url,URL,ref,deep,P,pointer):
 		if not set([pointer]).issubset(self.processed):
@@ -441,7 +452,9 @@ class UT(object):
 					logging.debug("[%s] Mixed content found",url)
 
 	def is_internal(self,P,url,URL):
-		return bool(re.search('^(www\.)?' + re.search('^(www\.)?(.*)$',URL.netloc).group(2), P.netloc))
+		urldomain = re.search('^(www\.)?(.*)$',URL.netloc).group(2)
+		pointerdomain = re.search('^(www\.)?' + urldomain, P.netloc)
+		return bool(pointerdomain)
 
 	def is_similar(self,P,url,domains):
 		res = False
