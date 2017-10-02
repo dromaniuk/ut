@@ -25,8 +25,7 @@ class UT(object):
 	verbose = False
 	quiet = False
 	extended = False
-	domain = ""
-	domains = []
+	domains = set()
 	starturl = None
 	only_static = False
 	external_static = False
@@ -39,6 +38,9 @@ class UT(object):
 	withcontent = False
 	withexternal = False
 	withmixedcontent = False
+	urlmeta = {}
+	queue = set()
+	processed = set()
 
 	def read_params(self,mainargs):
 		try:
@@ -79,14 +81,26 @@ class UT(object):
 				assert False, "unhandled option"
 
 		if len(args) > 0:
-			self.domain = args[0]
 			for u in args:
-				d = urllib.parse.urlparse(u)
-				if re.search('^http(s)?://', u):
-					self.domains.append(d.netloc)
+				D = urllib.parse.urlparse(u)
+				if D.scheme == '':
+					domain = D.path
+					self.domains.add(re.search('^(www\.)?(.*)$',domain).group(2))
+
+					D = D._replace(scheme='http',netloc=D.path,path="")
+					self.push(urllib.parse.urlunparse(D),'',0)
+					D = D._replace(scheme='https')
+					self.push(urllib.parse.urlunparse(D),'',0)
+
+				elif set([D.scheme]).issubset(set(['http','https'])):
+					domain = D.netloc
+					self.domains.add(re.search('^(www\.)?(.*)$',domain).group(2))
+
+					self.push(urllib.parse.urlunparse(D),'',0)
+
 				else:
-					self.domains.append(d.path)
-			self.domain = self.domains[0]
+					logging.warning("Unsupported protocol %s",D.scheme)
+					continue
 		else:
 			assert False, "wrong input parameters"
 
@@ -128,6 +142,14 @@ class UT(object):
 		else:
 			raise ConfigException('Loglevel "' + loglevel + '" not recognized')
 
+		self.logfile = self.workdir + time.strftime("%Y%m%d%H%M%S") + ".log"
+		logging.basicConfig(filename=self.logfile,level=self.loglevel,format="%(asctime)s [%(levelname)s]\t%(message)s")
+		logging.debug("Logfile opened")
+
+		logging.debug("Creating lock")
+		self.lock = threading.Lock()
+
+
 	def display(self):
 		while self.mon_thread_enabled:
 			sys.stdout.write("\rTrds: {0:2d}\tQueue: {1:2d}\tSucc: {2:2d}\tSkip: {3:2d}\tExt: {4:3d}\tRedir: {5:2d}\tErr: {6:3d}\tTrb: {7:2d}".format(threading.active_count()-self.service_threads,len(self.queue),len(self.successful),len(self.skipped),len(self.external),len(self.redirected),len(self.errored),len(self.troubled)))
@@ -157,11 +179,9 @@ class UT(object):
 		return url
 
 	def scan(self):
-		self.domaindir = self.workdir + self.domain + "/"
-		self.suredir(self.domaindir)
-		self.logfile = self.workdir + time.strftime("%Y%m%d%H%M%S") + ".log"
-		logging.basicConfig(filename=self.logfile,level=self.loglevel,format="%(asctime)s [%(levelname)s]\t%(message)s")
-		logging.debug("Logfile opened")
+		for domain in self.domains:
+			self.domaindir = self.workdir + domain + "/"
+			self.suredir(self.domaindir)
 
 		logging.debug("Creating sets")
 		self.urlmeta = {}
@@ -182,9 +202,6 @@ class UT(object):
 		self.crossdomain = set()
 		self.crossprotocol = set()
 		self.sitecontent = set()
-
-		logging.debug("Creating lock")
-		self.lock = threading.Lock()
 
 		logging.debug("Adding domains")
 		for d in self.domains:
@@ -325,45 +342,45 @@ class UT(object):
 			if set([url]).issubset(self.successful):
 				if set([url]).issubset(self.internal):
 					if set([url]).issubset(self.sitecontent | self.skipped):
-						logging.info("%d\t%s\tInternal HTML\t%s\t(Ref: %s)",resp.status,resp.reason,url,ref)
+						logging.info("%d\t%s\tInternal Content\t%s\t(Ref: %s)",resp.status,resp.reason,url,ref)
 						if not self.quiet:
 							if self.verbose or self.withcontent:
 								print("\t".join([str(self.urlmeta[url]['status']),self.urlmeta[url]['reason'],"*In/cont*",url,"(Ref: "+ref+")"]))
 					else:
-						logging.info("%d\t%s\tInternal Content\t%s\t(Ref: %s)",resp.status,resp.reason,url,ref)
+						logging.info("%d\t%s\tInternal HTML\t%s\t(Ref: %s)",resp.status,resp.reason,url,ref)
 						if not self.quiet:
 							if self.verbose:
 								print("\t".join([str(self.urlmeta[url]['status']),self.urlmeta[url]['reason'],"*In/HTML*",url,"(Ref: "+ref+")"]))
 				elif set([url]).issubset(self.crossdomain):
 					if set([url]).issubset(self.sitecontent | self.skipped):
-						logging.info("%d\t%s\tCrossdomain HTML\t%s\t(Ref: %s)",resp.status,resp.reason,url,ref)
+						logging.info("%d\t%s\tCrossdomain Content\t%s\t(Ref: %s)",resp.status,resp.reason,url,ref)
 						if not self.quiet:
 							if self.verbose or self.withcontent:
 								print("\t".join([str(self.urlmeta[url]['status']),self.urlmeta[url]['reason'],"*Cr/cont*",url,"(Ref: "+ref+")"]))
 					else:
-						logging.info("%d\t%s\tCrossdomain Content\t%s\t(Ref: %s)",resp.status,resp.reason,url,ref)
+						logging.info("%d\t%s\tCrossdomain HTML\t%s\t(Ref: %s)",resp.status,resp.reason,url,ref)
 						if not self.quiet:
 							if self.verbose:
 								print("\t".join([str(self.urlmeta[url]['status']),self.urlmeta[url]['reason'],"*Cr/HTML*",url,"(Ref: "+ref+")"]))
 				elif set([url]).issubset(self.external):
 					if set([url]).issubset(self.sitecontent | self.skipped):
-						logging.info("%d\t%s\tExternal HTML\t%s\t(Ref: %s)",resp.status,resp.reason,url,ref)
+						logging.info("%d\t%s\tExternal Content\t%s\t(Ref: %s)",resp.status,resp.reason,url,ref)
 						if not self.quiet:
 							if self.verbose or self.withcontent:
 								print("\t".join([str(self.urlmeta[url]['status']),self.urlmeta[url]['reason'],"*Ex/cont*",url,"(Ref: "+ref+")"]))
 					else:
-						logging.info("%d\t%s\tExternal Content\t%s\t(Ref: %s)",resp.status,resp.reason,url,ref)
+						logging.info("%d\t%s\tExternal HTMl\t%s\t(Ref: %s)",resp.status,resp.reason,url,ref)
 						if not self.quiet:
 							if self.verbose:
 								print("\t".join([str(self.urlmeta[url]['status']),self.urlmeta[url]['reason'],"*Ex/HTML*",url,"(Ref: "+ref+")"]))
 				else:
 					if set([url]).issubset(self.sitecontent | self.skipped):
-						logging.info("%d\t%s\tUnknown HTML\t%s\t(Ref: %s)",resp.status,resp.reason,url,ref)
+						logging.info("%d\t%s\tUnknown Content\t%s\t(Ref: %s)",resp.status,resp.reason,url,ref)
 						if not self.quiet:
 							if self.verbose or self.withcontent:
 								print("\t".join([str(self.urlmeta[url]['status']),self.urlmeta[url]['reason'],"*Un/cont*",url,"(Ref: "+ref+")"]))
 					else:
-						logging.info("%d\t%s\tUnknown Content\t%s\t(Ref: %s)",resp.status,resp.reason,url,ref)
+						logging.info("%d\t%s\tUnknown HTML\t%s\t(Ref: %s)",resp.status,resp.reason,url,ref)
 						if not self.quiet:
 							if self.verbose:
 								print("\t".join([str(self.urlmeta[url]['status']),self.urlmeta[url]['reason'],"*Un/HTML*",url,"(Ref: "+ref+")"]))
