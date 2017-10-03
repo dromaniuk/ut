@@ -129,6 +129,11 @@ class UT(object):
 			elif o in ("--with-html"):
 				self.withhtml = True
 
+			elif o in ("--with-redirects"):
+				self.withredirects = True
+			elif o in ("--with-notfound"):
+				self.withnotfound = True
+
 			else:
 				assert False, "unhandled option"
 
