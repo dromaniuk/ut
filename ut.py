@@ -339,6 +339,7 @@ class UT(object):
 			if len(self.troubled):
 				logging.info("Troubled: %d",len(self.troubled))
 				print("Troubled: " + str(len(self.troubled)))
+			print("\n")
 
 	def chain(self,url,ref,deep):
 		try:
