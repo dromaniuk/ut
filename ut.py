@@ -40,11 +40,13 @@ class UT(object):
 	withinternal = False
 	withcrossdomain = False
 	withexternal = False
+	withunknown = False
 
 	withmixedcontent = False
 
 	withcontent = False
 	withstatic = False
+	withhtml = False
 
 	withredirects = False
 	withnotfound = False
@@ -74,9 +76,11 @@ class UT(object):
 				"with-internal",
 				"with-cross",
 				"with-external",
+				"with-unknown",
 				
 				"with-content",
 				"with-static",
+				"with-html",
 
 				"with-redirects",
 				"with-notfound",
@@ -112,6 +116,8 @@ class UT(object):
 				self.withcrossdomain = True
 			elif o in ("--with-external"):
 				self.withexternal = True
+			elif o in ("--with-unknown"):
+				self.withunknown = True
 
 			elif o in ("--with-mixed","--mixed"):
 				self.withmixedcontent = True
@@ -120,6 +126,8 @@ class UT(object):
 				self.withcontent = True
 			elif o in ("--with-static"):
 				self.withstatic = True
+			elif o in ("--with-html"):
+				self.withhtml = True
 
 			else:
 				assert False, "unhandled option"
@@ -296,7 +304,7 @@ class UT(object):
 			logging.debug("Threads syncronized")
 
 			logging.debug("Displaying summary")
-			sys.stdout.write("\r" + " "*120 + "\r" )
+			sys.stdout.write("\r" + " "*120 + "\r\n" )
 			sys.stdout.flush()
 			if len(self.successful):
 				logging.info("Success: %d",len(self.successful))
@@ -409,7 +417,7 @@ class UT(object):
 					descr.append('External')
 					tags.append('Extr')
 				else:
-					disp |= self.verbose
+					disp |= self.verbose or self.withunknown
 					descr.append('Unknown')
 					tags.append('Unknown')
 
@@ -422,7 +430,7 @@ class UT(object):
 					descr.append('Link')
 					tags.append('Link')
 				else:
-					disp |= self.verbose
+					disp |= self.verbose or self.withhtml
 					descr.append('HTML')
 					tags.append('HTML')
 
