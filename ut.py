@@ -369,7 +369,7 @@ class UT(object):
 			except:
 				path = urllib.parse.quote(URL.path)
 
-			conn.request("GET", path)
+			conn.request("GET", path, None, {'User-Agent':'Hadornbot'})
 			resp = conn.getresponse()
 
 			logging.debug("[%s] %d %s",url,resp.status,resp.reason)
