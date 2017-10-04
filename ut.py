@@ -493,28 +493,15 @@ class UT(object):
 		logging.debug("[%s] Searching links",url)
 		for link in soup.findAll("a"):
 			href = link.get('href')
-			P = urllib.parse.urlparse(href)._replace(params='',fragment='')
-			if not self.extended:
-				P = P._replace(query='')
-			if isinstance(P,urllib.parse.ParseResult):
-				pointer, P = self.prepare_url(P,url,URL)
-				logging.debug("[%s] Found link %s",url,pointer)
-				self.url(url,URL,ref,deep,P,pointer)
+			pointer, P = self.prepare_url(href,url)
+			logging.debug("[%s] Found link %s",url,pointer)
+			self.url(url,URL,ref,deep,P,pointer)
 
-	def prepare_url(self,P,url,URL):
-		if set([P.scheme]).issubset(set(['',])):
-			P = P._replace(scheme=URL.scheme)
-
-		if set([P.scheme]).issubset(set(['http','https'])):
-			if P.netloc == '':
-				P = P._replace(netloc=URL.netloc)
-				res = re.match('\.(/.*)',P.path)
-				if res:
-					P = P._replace(path=res.group(1))
-
-			if P.path.find("\n") >= 0:
-				P = P._replace(path=P.path.replace("\n",""))
-	
+	def prepare_url(self,pointer,url):
+		pointer = urllib.parse.urljoin(url, pointer)
+		P = urllib.parse.urlparse(pointer)._replace(params='',fragment='')
+		if not self.extended:
+			P = P._replace(query='')
 		return urllib.parse.urlunparse(P), P
 
 	def url(self,url,URL,ref,deep,P,pointer):
