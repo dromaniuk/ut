@@ -20,53 +20,64 @@ import configparser
 class UT(object):
 	"""docstring for UT"""
 
+	# Main flags
 	verbose = False
 	quiet = False
-	extended = False
-	domains = set()
-	starturl = None
-	only_static = False
-	external_static = False
-	list_view = False
-	showsummary = False
 	deep = None
-	threads = cpu_count()+1
+	threads = cpu_count()
 	service_threads = 1
 
-	withcrossprotocol = False
-
+	# Allowable display flags
 	withinternal = False
-	withcrossdomain = False
+	withcrossite = False
 	withexternal = False
 	withunknown = False
-
-	withmixedcontent = False
-
 	withcontent = False
 	withstatic = False
 	withhtml = False
-
 	withredirects = False
-	withnotfound = False
+	with4xx = True
+	with5xx = True
+	withmixedcontent = True
 
+	# Restrictable display flags
+	withoutinternal = False
+	withoutcrossite = False
+	withoutexternal = False
+	withoutunknown = False
+	withoutcontent = False
+	withoutstatic = False
+	withouthtml = False
+	withoutredirects = False
+	without4xx = False
+	without5xx = False
+	withoutmixedcontent = False
+
+	# Main algorithm units
+	sites = set()
 	urlmeta = {}
 	queue = set()
 	processed = set()
 
-	successful = set()
-	redirected = set()
-	notfound = set()
-	errored = set()
-
-	troubled = set()
-	skipped = set()
-
+	# Positional units
 	internal = set()
+	crossite = set()
 	external = set()
 
-	crossdomain = set()
+	# Type units
+	content = set()
+	static = set()
+	html = set()
+
+	# Status units
+	successful = set()
+	redirected = set()
+	clientsideerror = set()
+	serversideerror = set()
+	troubled = set()
+
+	# Support units
 	crossprotocol = set()
-	sitecontent = set()
 
 	def read_params(self,mainargs):
 		try:
@@ -75,16 +86,25 @@ class UT(object):
 				"with-cross",
 				"with-external",
 				"with-unknown",
-				
 				"with-content",
 				"with-static",
 				"with-html",
-
 				"with-redirects",
-				"with-notfound",
-
+				"with-4xx",
+				"with-5xx",
 				"with-mixed",
-				"mixed"
+
+				"without-internal",
+				"without-cross",
+				"without-external",
+				"without-unknown",
+				"without-content",
+				"without-static",
+				"without-html",
+				"without-redirects",
+				"without-4xx",
+				"without-5xx",
+				"without-mixed"
 			])
 		except getopt.GetoptError as err:
 			print(err)
@@ -111,26 +131,46 @@ class UT(object):
 			elif o in ("--with-internal"):
 				self.withinternal = True
 			elif o in ("--with-cross"):
-				self.withcrossdomain = True
+				self.withcrossite = True
 			elif o in ("--with-external"):
 				self.withexternal = True
 			elif o in ("--with-unknown"):
 				self.withunknown = True
-
-			elif o in ("--with-mixed","--mixed"):
-				self.withmixedcontent = True
-
-			elif o in ("--with-content","--mixed"):
+			elif o in ("--with-content"):
 				self.withcontent = True
 			elif o in ("--with-static"):
 				self.withstatic = True
 			elif o in ("--with-html"):
 				self.withhtml = True
+			elif o in ("--with-4xx"):
+				self.with4xx = True
+			elif o in ("--with-5xx"):
+				self.with5xx = True
+			elif o in ("--with-mixed"):
+				self.withmixedcontent = True
 
-			elif o in ("--with-redirects"):
-				self.withredirects = True
-			elif o in ("--with-notfound"):
-				self.withnotfound = True
+			elif o in ("--without-internal"):
+				self.withoutinternal = True
+			elif o in ("--without-cross"):
+				self.withoutcrossite = True
+			elif o in ("--without-external"):
+				self.withoutexternal = True
+			elif o in ("--without-unknown"):
+				self.withoutunknown = True
+			elif o in ("--without-content"):
+				self.withoutcontent = True
+			elif o in ("--without-static"):
+				self.withoutstatic = True
+			elif o in ("--without-html"):
+				self.withouthtml = True
+			elif o in ("--without-redirects"):
+				self.withoutredirects = True
+			elif o in ("--without-4xx"):
+				self.without4xx = True
+			elif o in ("--without-5xx"):
+				self.without5xx = True
+			elif o in ("--with-mixed"):
+				self.withoutmixedcontent = True
 
 			else:
 				assert False, "unhandled option"
@@ -140,22 +180,18 @@ class UT(object):
 				D = urllib.parse.urlparse(u)
 				if D.scheme == '':
 					domain = D.path
-					self.domains.add(re.search('^(www\.)?(.*)$',domain).group(2))
+					nonwww = re.search('^(www\.)?(.*)$',domain).group(2)
+					path = "/"
 
-					D = D._replace(scheme='http',netloc=D.path,path="")
-					self.push(urllib.parse.urlunparse(D),'',0)
-					self.internal.add(urllib.parse.urlunparse(D))
-
-					D = D._replace(scheme='https')
-					self.push(urllib.parse.urlunparse(D),'',0)
-					self.internal.add(urllib.parse.urlunparse(D))
+					D = D._replace(scheme='http',netloc=nonwww,path=path)
+					self.sites.add(urllib.parse.urlunparse(D))
 
 				elif set([D.scheme]).issubset(set(['http','https'])):
 					domain = D.netloc
-					self.domains.add(re.search('^(www\.)?(.*)$',domain).group(2))
+					nonwww = re.search('^(www\.)?(.*)$',domain).group(2)
 
-					self.push(urllib.parse.urlunparse(D),'',0)
-					self.internal.add(urllib.parse.urlunparse(D))
+					D = D._replace(netloc=nonwww)
+					self.sites.add(urllib.parse.urlunparse(D))
 
 				else:
 					logging.warning("Unsupported protocol %s",D.scheme)
@@ -239,14 +275,19 @@ class UT(object):
 		return url
 
 	def scan(self):
-		for domain in self.domains:
-			self.domaindir = self.workdir + domain + "/"
-			self.suredir(self.domaindir)
+		for site in self.sites:
+			self.push(site,'',0)
+			self.internal.add(site)
 
 		logging.debug("Printing startup info")
-		print("Logfile: " + os.path.abspath(self.logfile))
-		print("Domain: " + " ".join(self.domains))
-		print("Threads: " + str(self.threads) + "\n")
+		print("\033[0;36mSites:\033[0m " + " ".join(self.sites))
+		print("\033[0;36mThreads:\033[0m " + str(self.threads))
+		deep = "Infinite"
+		if self.deep is not None:
+			deep = self.deep
+		print("\033[0;36mDeep:\033[0m {}".format(deep))
+		print("\033[0;36mLogfile:\033[0m " + os.path.abspath(self.logfile))
+		print()
 		logging.info("Threads count: %d",self.threads)
 
 		try:
@@ -266,9 +307,9 @@ class UT(object):
 					url = self.pop()
 					ref = self.urlmeta[url]['referers'].pop()
 					deep = self.urlmeta[url]['deep']
-					if not isinstance(urllib.parse.urlparse(url),urllib.parse.ParseResult):
-						logging.debug("%s is not valid url. Skipping")
-						continue
+					# if not isinstance(urllib.parse.urlparse(url),urllib.parse.ParseResult):
+					# 	logging.debug("%s is not valid url. Skipping")
+					# 	continue
 
 					if self.deep is None or self.deep >= deep:
 						t = threading.Thread(name="Parsing " + url,target=self.chain, args=(url,ref,deep))
@@ -292,7 +333,7 @@ class UT(object):
 			pass
 		except KeyboardInterrupt:
 			logging.warning("Operation aborted. Exiting")
-			sys.stdout.write("\r" + " "*120 + "\rOperation Aborted\n")
+			sys.stdout.write("\r" + " "*120 + "\r\033[1;36mOperation Aborted\033[0m\n")
 			sys.stdout.flush()
 		except:
 			raise
@@ -312,32 +353,32 @@ class UT(object):
 			if len(self.successful):
 				logging.info("Success: %d",len(self.successful))
 				logging.info("\tInternal: %d",len(self.successful & self.internal))
-				logging.info("\tCrossdomain: %d",len(self.successful & self.crossdomain))
+				logging.info("\tCrosssite: %d",len(self.successful & self.crossite))
 				logging.info("\tExternal: %d",len(self.successful & self.external))
-				logging.info("\tUnknown: %d",len(self.successful & (self.internal | self.crossdomain | self.external)))
+				logging.info("\tUnknown: %d",len(self.successful & (self.internal | self.crossite | self.external)))
 				print("Success: " + str(len(self.successful)))
 				print("\tInternal: " + str(len(self.successful & self.internal)))
-				print("\tCrossdomain: " + str(len(self.successful & self.crossdomain)))
+				print("\tCrossdomain: " + str(len(self.successful & self.crossite)))
 				print("\tExternal: " + str(len(self.successful & self.external)))
-				print("\tUnknown: " + str(len(self.successful - (self.internal | self.crossdomain | self.external))))
+				print("\tUnknown: " + str(len(self.successful - (self.internal | self.crossite | self.external))))
 
-			if self.withmixedcontent and len(self.mixedcontent):
-				logging.info("Mixed content: %d",len(self.mixedcontent))
-				logging.info("\nSuccess: %d",len(self.success & self.mixedcontent))
-				print("Mixed content: " + str(len(self.mixedcontent)))
-				print("\tSuccess: " + str(len(self.success & self.mixedcontent)))
+			if len(self.crossprotocol):
+				logging.info("Mixed content: %d",len(self.crossprotocol & self.content))
+				logging.info("\nInternal: %d",len(self.internal & self.content & self.crossprotocol))
+				print("Mixed content: " + str(len(self.crossprotocol & self.content)))
+				print("\tSuccess: " + str(len(self.internal & self.content & self.crossprotocol)))
 
 			if len(self.redirected):
 				logging.info("Redirected: %d",len(self.redirected))
 				print("Redirected: " + str(len(self.redirected)))
 
-			if len(self.notfound):
-				logging.info("Not Found: %d",len(self.notfound))
-				print("Not Found: " + str(len(self.notfound)))
+			if len(self.clientsideerror):
+				logging.info("Not Found: %d",len(self.clientsideerror))
+				print("4xx Errors: " + str(len(self.clientsideerror)))
 
-			if len(self.errored):
-				logging.info("Errored: %d",len(self.errored))
-				print("Errored: " + str(len(self.errored)))
+			if len(self.serversideerror):
+				logging.info("5xx Errors: %d",len(self.serversideerror))
+				print("5xx Errors: " + str(len(self.serversideerror)))
 
 			if len(self.troubled):
 				logging.info("Troubled: %d",len(self.troubled))
@@ -406,60 +447,79 @@ class UT(object):
 
 				descr = []
 				tags = []
-				disp = False
+				disp = True
 
 				if set([url]).issubset(self.internal):
-					disp |= self.withinternal or self.verbose
+					disp &= (self.withinternal or self.verbose) and not self.withoutinternal
 					descr.append('Internal')
-					tags.append('Intr')
-				elif set([url]).issubset(self.crossdomain):
-					disp |= self.withcrossdomain or self.verbose
+					# tags.append('Intr')
+				elif set([url]).issubset(self.crossite):
+					disp &= (self.withcrossite or self.verbose) and not self.withoutcrossite
 					descr.append('Crossdomain')
 					tags.append('Cross')
 				elif set([url]).issubset(self.external):
-					disp |= self.withexternal or self.verbose
+					disp &= (self.withexternal or self.verbose) and not self.withoutexternal
 					descr.append('External')
 					tags.append('Extr')
 				else:
-					disp |= self.verbose or self.withunknown
+					disp &= (self.withunknown or self.verbose) and not self.withoutunknown
 					descr.append('Unknown')
 					tags.append('Unknown')
 
-				if set([url]).issubset(self.sitecontent):
-					disp |= self.withcontent or self.verbose
+				if set([url]).issubset(self.content):
+					disp &= (self.withcontent or self.verbose) and not self.withoutcontent
 					descr.append('Content')
 					tags.append('Cont')
-				elif set([url]).issubset(self.skipped):
-					disp |= self.withstatic or self.verbose
+				elif set([url]).issubset(self.static-self.content):
+					disp &= (self.withstatic or self.verbose) and not self.withoutstatic
 					descr.append('Link')
 					tags.append('Link')
 				else:
-					disp |= self.verbose or self.withhtml
+					disp &= (self.withhtml or self.verbose) and not self.withouthtml
 					descr.append('HTML')
-					tags.append('HTML')
+					# tags.append('HTML')
+
+				if set([url]).issubset(self.crossprotocol & self.content):
+					disp &= (self.withmixedcontent or self.verbose) and not self.withoutmixedcontent
+					descr.append('Mixed')
+					tags.append('\033[1;31mMixed\033[0m')
 
 				logging.info("%d\t%s\t|%s|\t%s\t(Ref: %s)",status,reason," ".join(descr),url,ref)
-				if not self.quiet:
-					if disp:
-						print("\t".join([str(status),reason,"|" + "/".join(tags) + "|",url,"(Ref: "+ref+")"]))
+				if not self.quiet and disp:
+					# print("\t".join([str(status),reason,"|" + "/".join(tags) + "|",url,"(Ref: "+ref+")"]))
+					print("\033[0;32m{status:3d} {reason:20}\033[0m {tags:15}\t\033[0;37m{url}\033[0m \033[1;30m(Ref: {ref})\033[0m".format(status=status,reason=reason,tags="/".join(tags),url=url,ref=ref))
 
 			if set([url]).issubset(self.redirected):
 				status = self.urlmeta[url]['status']
 				reason = self.urlmeta[url]['reason']
 
-				logging.info("%d\t%s\tRedirect\t%s => %s\t(Ref: %s)",status,reason,url,self.urlmeta[url]['location'],ref)
-				if not self.quiet:
-					if self.verbose or self.withredirects:
-						print("\t".join([str(status),reason,url,"=>",self.urlmeta[url]['location'],"(Ref: "+ref+")"]))
-			if set([url]).issubset(self.notfound):
+				disp = False
+				descr = []
+				tags = []
+				if set([url]).issubset(self.crossprotocol & self.content):
+					disp |= (self.withmixedcontent or self.verbose) and not self.withoutmixedcontent
+					descr.append('Mixed')
+					tags.append('\033[1;31mMixed\033[0m')
+				if set([url]).issubset(self.content):
+					disp |= (self.withcontent or self.verbose) and not self.withoutcontent
+					descr.append('Content')
+					tags.append('Cont')
+
+				logging.info("%d\t%s\t%s\t%s => %s\t(Ref: %s)",status,reason,"/".join(descr),url,self.urlmeta[url]['location'],ref)
+				# print(self.quiet, (self.withredirects or self.verbose or disp), self.withoutredirects)
+				if not self.quiet and (self.withredirects or self.verbose or disp) and not self.withoutredirects:
+					print("\033[1;34m{status:3d} {reason:20}\033[0m {tags:15}\t\033[0;37m{url} => {location}\033[0m \033[1;30m(Ref: {ref})\033[0m".format(status=status,reason=reason,tags="/".join(tags),url=url,location=self.urlmeta[url]['location'],ref=ref))
+
+			if set([url]).issubset(self.clientsideerror):
 				status = self.urlmeta[url]['status']
 				reason = self.urlmeta[url]['reason']
 
 				logging.warning("%d\t%s\t%s\t(Ref: %s)",status,reason,url,ref)
 				if not self.quiet:
-					if self.verbose or self.withnotfound:
-						print("\t".join([str(status),reason,url,"(Ref: "+ref+")"]))
-			if set([url]).issubset(self.errored):
+					if (self.with4xx or self.verbose) and not self.without4xx:
+						print("\033[0;33m{status:3d} {reason:20}\033[0m {tags:15}\t\033[0;37m{url}\033[0m \033[1;30m(Ref: {ref})\033[0m".format(status=status,reason=reason,tags='',url=url,ref=ref))
+
+			if set([url]).issubset(self.serversideerror):
 				status = self.urlmeta[url]['status']
 				reason = self.urlmeta[url]['reason']
 
@@ -475,67 +535,102 @@ class UT(object):
 		self.urlmeta[url]['mime'] = mime
 
 		if re.search('^text/html', mime):
+			self.html.add(url)
 			self.mime_html(url,URL,resp,ref,deep)
 		else:
 			logging.info("[%s] OK. Skipping",url)
-			self.skipped.add(url)
+			self.static.add(url)
 
 	def mime_html(self,url,URL,resp,ref,deep):
-		html_page = resp.read()
-		logging.debug("[%s] Parsing page",url)
-		soup = BeautifulSoup(html_page,'html.parser')
+		if set([url]).issubset( self.internal | self.crossite ):
+			html_page = resp.read()
+			logging.debug("[%s] Parsing page",url)
+			soup = BeautifulSoup(html_page,'html.parser')
 
-		self.tags_a(url,URL,ref,deep,soup)
+			self.tags_a(url,URL,ref,deep,soup)
+			self.tags_script(url,URL,ref,deep,soup)
+			self.tags_css(url,URL,ref,deep,soup)
+			self.tags_imgs(url,URL,ref,deep,soup)
 
 	def tags_a(self,url,URL,ref,deep,soup):
 		logging.debug("[%s] Searching links",url)
-		for link in soup.findAll("a"):
-			href = link.get('href')
-			pointer, P = self.prepare_url(href,url)
-			logging.debug("[%s] Found link %s",url,pointer)
-			self.url(url,URL,ref,deep,P,pointer)
+		for tag in soup.findAll("a"):
+			pointer = tag.get('href')
+			if pointer:
+				pointer, P = self.prepare_url(pointer,url)
+				logging.debug("[%s] Found link %s",url,pointer)
+				self.url(url,URL,ref,deep,P,pointer)
+
+	def tags_script(self,url,URL,ref,deep,soup):
+		logging.debug("[%s] Searching scripts",url)
+		for tag in soup.findAll("script"):
+			pointer = tag.get('src')
+			if pointer:
+				pointer, P = self.prepare_url(pointer,url)
+				logging.debug("[%s] Found script %s",url,pointer)
+				self.content.add(pointer)
+				self.url(url,URL,ref,deep,P,pointer)
+
+	def tags_css(self,url,URL,ref,deep,soup):
+		logging.debug("[%s] Searching stylesheets",url)
+		for tag in soup.findAll("link"):
+			rel = tag.get('rel')
+			if 'stylesheet' in rel:
+				pointer = tag.get('href')
+				if pointer:
+					pointer, P = self.prepare_url(pointer,url)
+					logging.debug("[%s] Found stylesheet %s",url,pointer)
+					self.content.add(pointer)
+					self.url(url,URL,ref,deep,P,pointer)
+
+	def tags_imgs(self,url,URL,ref,deep,soup):
+		logging.debug("[%s] Searching images",url)
+		for tag in soup.findAll("img"):
+			pointer = tag.get('src')
+			if pointer:
+				pointer, P = self.prepare_url(pointer,url)
+				logging.debug("[%s] Found stylesheet %s",url,pointer)
+				self.content.add(pointer)
+				self.url(url,URL,ref,deep,P,pointer)
 
 	def prepare_url(self,pointer,url):
 		pointer = urllib.parse.urljoin(url, pointer)
-		P = urllib.parse.urlparse(pointer)._replace(params='',fragment='')
-		if not self.extended:
-			P = P._replace(query='')
+		P = urllib.parse.urlparse(pointer)
+		P = P._replace(params='',fragment='',netloc=P.netloc.replace(":443",""))
 		return urllib.parse.urlunparse(P), P
 
 	def url(self,url,URL,ref,deep,P,pointer):
 		if not set([pointer]).issubset(self.processed):
 			self.processed.add(pointer)
-			if self.is_internal(P,url,URL):
-				logging.debug("[%s] Internal link. Adding to queue",url)
-				self.internal.add(pointer)
-				self.push(pointer,url,deep+1)
-			elif self.is_similar(P,url,self.domains):
-				logging.debug("[%s] Internal crossdomain link. Adding to queue",url)
-				self.crossdomain.add(pointer)
-				self.push(pointer,url,deep+1)
-			else:
-				logging.debug("[%s] External link",url)
-				self.external.add(pointer)
+			if P.scheme in ('http','https'):
+				if P.scheme != URL.scheme:
+					logging.debug("[%s] Crossprotocol link",url)
+					self.crossprotocol.add(pointer)
 
-			if P.scheme in ('http','https') and P.scheme != URL.scheme:
-				logging.debug("[%s] Crossprotocol link",url)
-				self.crossprotocol.add(pointer)
-				if set([pointer]).issubset(self.sitecontent):
-					self.mixedcontent.add(pointer)
-					logging.debug("[%s] Mixed content found",url)
+				external, internal = self.get_position(P,URL)
+				if internal:
+					logging.debug("[%s] Internal link. Adding to queue",url)
+					self.internal.add(pointer)
+					self.push(pointer,url,deep+1)
+				elif external:
+					logging.debug("[%s] External link",url)
+					self.external.add(pointer)
+				else:
+					logging.debug("[%s] Internal crossite link. Adding to queue",url)
+					self.crossite.add(pointer)
+					self.push(pointer,url,deep+1)
 
-	def is_internal(self,P,url,URL):
-		urldomain = re.search('^(www\.)?(.*)$',URL.netloc).group(2)
-		pointerdomain = re.search('^(www\.)?' + urldomain, P.netloc)
-		return bool(pointerdomain)
-
-	def is_similar(self,P,url,domains):
-		res = False
-		for d in domains:
-			if re.search('^(www\.)?' + re.search('^(www\.)?(.*)$',d).group(2), P.netloc):
-				res = True
-				break
-		return res
+	def get_position(self,P,URL):
+		urlsite = ''
+		pointersite = ''
+		for s in self.sites:
+			S = urllib.parse.urlparse(s)
+			if (URL.netloc.find(S.netloc) == 0 or URL.netloc.find("www." + S.netloc) == 0) and (URL.path.find(S.path) == 0) and len(s)>len(urlsite):
+				urlsite = s
+			if (P.netloc.find(S.netloc) == 0 or P.netloc.find("www." + S.netloc) == 0) and (P.path.find(S.path) == 0) and len(s)>len(pointersite):
+				pointersite = s
+		# print("'" + pointersite + "'\n'" + urlsite + "'\n\n")
+		return pointersite == '', pointersite == urlsite
 
 	def code_3xx(self,url,URL,resp,ref,deep):
 		location = resp.getheader("Location");
@@ -546,10 +641,10 @@ class UT(object):
 		self.url(url,URL,ref,deep,P,location)
 
 	def code_4xx(self,url,URL,resp,ref,deep):
-		self.notfound.add(url)
+		self.clientsideerror.add(url)
 
 	def code_5xx(self,url,URL,resp,ref,deep):
-		self.errored.add(url)
+		self.serversideerror.add(url)
 
 class ConfigException(Exception):
 	pass
