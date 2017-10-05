@@ -350,39 +350,169 @@ class UT(object):
 			logging.debug("Displaying summary")
 			sys.stdout.write("\r" + " "*120 + "\r\n" )
 			sys.stdout.flush()
-			if len(self.successful):
-				logging.info("Success: %d",len(self.successful))
-				logging.info("\tInternal: %d",len(self.successful & self.internal))
-				logging.info("\tCrosssite: %d",len(self.successful & self.crossite))
-				logging.info("\tExternal: %d",len(self.successful & self.external))
-				logging.info("\tUnknown: %d",len(self.successful & (self.internal | self.crossite | self.external)))
-				print("Success: " + str(len(self.successful)))
-				print("\tInternal: " + str(len(self.successful & self.internal)))
-				print("\tCrossdomain: " + str(len(self.successful & self.crossite)))
-				print("\tExternal: " + str(len(self.successful & self.external)))
-				print("\tUnknown: " + str(len(self.successful - (self.internal | self.crossite | self.external))))
 
-			if len(self.crossprotocol):
-				logging.info("Mixed content: %d",len(self.crossprotocol & self.content))
-				logging.info("\nInternal: %d",len(self.internal & self.content & self.crossprotocol))
-				print("Mixed content: " + str(len(self.crossprotocol & self.content)))
-				print("\tSuccess: " + str(len(self.internal & self.content & self.crossprotocol)))
+			if len(self.html & self.internal):
+				logging.info("Pages Internal: %d",len(self.html & self.internal))
+				print("\033[1;30mPages Internal:\033[0m \033[1;37m{0:0d}\033[0m".format(len(self.html & self.internal)))
+			if len(self.html & self.internal & self.successful):
+				logging.info("    Successful: %d",len(self.html & self.internal & self.successful))
+				print("\033[1;30m    Successful:\033[0m\t\t\033[0;32m{0:4d}\033[0m".format(len(self.html & self.internal & self.successful)))
+			if len(self.html & self.internal & self.redirected):
+				logging.info("    Redirected: %d",len(self.html & self.internal & self.redirected))
+				print("\033[1;30m    Redirected:\033[0m\t\t\033[0;34m{0:4d}\033[0m".format(len(self.html & self.internal & self.redirected)))
+			if len(self.html & self.internal & self.clientsideerror):
+				logging.info("    4xx Errors: %d",len(self.html & self.internal & self.clientsideerror))
+				print("\033[1;30m    4xx Errors:\033[0m\t\t\033[0;33m{0:4d}\033[0m".format(len(self.html & self.internal & self.clientsideerror)))
+			if len(self.html & self.internal & self.serversideerror):
+				logging.info("    5xx Errors: %d",len(self.html & self.internal & self.serversideerror))
+				print("\033[1;30m    5xx Errors:\033[0m\t\t\033[0;31m{0:4d}\033[0m".format(len(self.html & self.internal & self.serversideerror)))
+			if len(self.html & self.internal & self.crossprotocol):
+				logging.info("    Crossprotocol: %d",len(self.html & self.internal & self.crossprotocol))
+				print("\033[1;30m    Crossprotocol:\033[0m\t\033[0;33m{0:4d}\033[0m".format(len(self.html & self.internal & self.crossprotocol)))
 
-			if len(self.redirected):
-				logging.info("Redirected: %d",len(self.redirected))
-				print("Redirected: " + str(len(self.redirected)))
+			if len(self.html & self.crossite):
+				logging.info("Pages Crosssite: %d",len(self.html & self.crossite))
+				print("\033[1;30mPages Crosssite:\033[0m \033[1;37m{0:0d}\033[0m".format(len(self.html & self.crossite)))
+			if len(self.html & self.crossite & self.successful):
+				logging.info("    Successful: %d",len(self.html & self.crossite & self.successful))
+				print("\033[1;30m    Successful:\033[0m\t\t\033[0;32m{0:4d}\033[0m".format(len(self.html & self.crossite & self.successful)))
+			if len(self.html & self.crossite & self.redirected):
+				logging.info("    Redirected: %d",len(self.html & self.crossite & self.redirected))
+				print("\033[1;30m    Redirected:\033[0m\t\t\033[0;34m{0:4d}\033[0m".format(len(self.html & self.crossite & self.redirected)))
+			if len(self.html & self.crossite & self.clientsideerror):
+				logging.info("    4xx Errors: %d",len(self.html & self.crossite & self.clientsideerror))
+				print("\033[1;30m    4xx Errors:\033[0m\t\t\033[0;33m{0:4d}\033[0m".format(len(self.html & self.crossite & self.clientsideerror)))
+			if len(self.html & self.crossite & self.serversideerror):
+				logging.info("    5xx Errors: %d",len(self.html & self.crossite & self.serversideerror))
+				print("\033[1;30m    5xx Errors:\033[0m\t\t\033[0;31m{0:4d}\033[0m".format(len(self.html & self.crossite & self.serversideerror)))
+			if len(self.html & self.crossite & self.crossprotocol):
+				logging.info("    Crossprotocol: %d",len(self.html & self.crossite & self.crossprotocol))
+				print("\033[1;30m    Crossprotocol:\033[0m\t\033[0;33m{0:4d}\033[0m".format(len(self.html & self.crossite & self.crossprotocol)))
 
-			if len(self.clientsideerror):
-				logging.info("Not Found: %d",len(self.clientsideerror))
-				print("4xx Errors: " + str(len(self.clientsideerror)))
+			if len(self.content & self.internal):
+				logging.info("Content Internal: %d",len(self.content & self.internal))
+				print("\033[1;30mContent Internal:\033[0m \033[1;37m{0:0d}\033[0m".format(len(self.content & self.internal)))
+			if len(self.content & self.internal & self.successful):
+				logging.info("    Successful: %d",len(self.content & self.internal & self.successful))
+				print("\033[1;30m    Successful:\033[0m\t\t\033[0;32m{0:4d}\033[0m".format(len(self.content & self.internal & self.successful)))
+			if len(self.content & self.internal & self.redirected):
+				logging.info("    Redirected: %d",len(self.content & self.internal & self.redirected))
+				print("\033[1;30m    Redirected:\033[0m\t\t\033[0;34m{0:4d}\033[0m".format(len(self.content & self.internal & self.redirected)))
+			if len(self.content & self.internal & self.clientsideerror):
+				logging.info("    4xx Errors: %d",len(self.content & self.internal & self.clientsideerror))
+				print("\033[1;30m    4xx Errors:\033[0m\t\t\033[0;33m{0:4d}\033[0m".format(len(self.content & self.internal & self.clientsideerror)))
+			if len(self.content & self.internal & self.serversideerror):
+				logging.info("    5xx Errors: %d",len(self.content & self.internal & self.serversideerror))
+				print("\033[1;30m    5xx Errors:\033[0m\t\t\033[0;31m{0:4d}\033[0m".format(len(self.content & self.internal & self.serversideerror)))
+			if len(self.content & self.internal & self.crossprotocol):
+				logging.info("    Crossprotocol: %d",len(self.content & self.internal & self.crossprotocol))
+				print("\033[1;30m    Crossprotocol:\033[0m\t\033[0;33m{0:4d}\033[0m".format(len(self.content & self.internal & self.crossprotocol)))
 
-			if len(self.serversideerror):
-				logging.info("5xx Errors: %d",len(self.serversideerror))
-				print("5xx Errors: " + str(len(self.serversideerror)))
+			if len(self.content & self.crossite):
+				logging.info("Content Crosssite: %d",len(self.content & self.crossite))
+				print("\033[1;30mContent Crosssite:\033[0m \033[1;37m{0:0d}\033[0m".format(len(self.content & self.crossite)))
+			if len(self.content & self.crossite & self.successful):
+				logging.info("    Successful: %d",len(self.content & self.crossite & self.successful))
+				print("\033[1;30m    Successful:\033[0m\t\t\033[0;32m{0:4d}\033[0m".format(len(self.content & self.crossite & self.successful)))
+			if len(self.content & self.crossite & self.redirected):
+				logging.info("    Redirected: %d",len(self.content & self.crossite & self.redirected))
+				print("\033[1;30m    Redirected:\033[0m\t\t\033[0;34m{0:4d}\033[0m".format(len(self.content & self.crossite & self.redirected)))
+			if len(self.content & self.crossite & self.clientsideerror):
+				logging.info("    4xx Errors: %d",len(self.content & self.crossite & self.clientsideerror))
+				print("\033[1;30m    4xx Errors:\033[0m\t\t\033[0;33m{0:4d}\033[0m".format(len(self.content & self.crossite & self.clientsideerror)))
+			if len(self.content & self.crossite & self.serversideerror):
+				logging.info("    5xx Errors: %d",len(self.content & self.crossite & self.serversideerror))
+				print("\033[1;30m    5xx Errors:\033[0m\t\t\033[0;31m{0:4d}\033[0m".format(len(self.content & self.crossite & self.serversideerror)))
+			if len(self.content & self.crossite & self.crossite):
+				logging.info("    Crossprotocol: %d",len(self.content & self.crossite & self.crossprotocol))
+				print("\033[1;30m    Crossprotocol:\033[0m\t\033[0;33m{0:4d}\033[0m".format(len(self.content & self.crossite & self.crossprotocol)))
 
-			if len(self.troubled):
-				logging.info("Troubled: %d",len(self.troubled))
-				print("Troubled: " + str(len(self.troubled)))
+			if len(self.content & self.external):
+				logging.info("  External: %d",len(self.content & self.external))
+				print("\033[1;30mContent External:\033[0m \033[1;37m{0:0d}\033[0m".format(len(self.content & self.external)))
+			if len(self.content & self.external & self.successful):
+				logging.info("    Successful: %d",len(self.content & self.external & self.successful))
+				print("\033[1;30m    Successful:\033[0m\t\t\033[0;32m{0:4d}\033[0m".format(len(self.content & self.external & self.successful)))
+			if len(self.content & self.external & self.redirected):
+				logging.info("    Redirected: %d",len(self.content & self.external & self.redirected))
+				print("\033[1;30m    Redirected:\033[0m\t\t\033[0;34m{0:4d}\033[0m".format(len(self.content & self.external & self.redirected)))
+			if len(self.content & self.external & self.clientsideerror):
+				logging.info("    4xx Errors: %d",len(self.content & self.external & self.clientsideerror))
+				print("\033[1;30m    4xx Errors:\033[0m\t\t\033[0;33m{0:4d}\033[0m".format(len(self.content & self.external & self.clientsideerror)))
+			if len(self.content & self.external & self.serversideerror):
+				logging.info("    5xx Errors: %d",len(self.content & self.external & self.serversideerror))
+				print("\033[1;30m    5xx Errors:\033[0m\t\t\033[0;31m{0:4d}\033[0m".format(len(self.content & self.external & self.serversideerror)))
+			if len(self.content & self.external & self.crossprotocol):
+				logging.info("    Crossprotocol: %d",len(self.content & self.external & self.crossprotocol))
+				print("\033[1;30m    Crossprotocol:\033[0m\t\033[0;33m{0:4d}\033[0m".format(len(self.content & self.external & self.crossprotocol)))
+
+			if len(self.static - self.content & self.internal):
+				logging.info("Static Internal: %d",len(self.static - self.content & self.internal))
+				print("\033[1;30mStatic Internal:\033[0m \033[1;37m{0:0d}\033[0m".format(len(self.static - self.content & self.internal)))
+			if len(self.static - self.content & self.internal & self.successful):
+				logging.info("    Successful: %d",len(self.static - self.content & self.internal & self.successful))
+				print("\033[1;30m    Successful:\033[0m\t\t\033[0;32m{0:4d}\033[0m".format(len(self.static - self.content & self.internal & self.successful)))
+			if len(self.static - self.content & self.internal & self.redirected):
+				logging.info("    Redirected: %d",len(self.static - self.content & self.internal & self.redirected))
+				print("\033[1;30m    Redirected:\033[0m\t\t\033[0;34m{0:4d}\033[0m".format(len(self.static - self.content & self.internal & self.redirected)))
+			if len(self.static - self.content & self.internal & self.clientsideerror):
+				logging.info("    4xx Errors: %d",len(self.static - self.content & self.internal & self.clientsideerror))
+				print("\033[1;30m    4xx Errors:\033[0m\t\t\033[0;33m{0:4d}\033[0m".format(len(self.static - self.content & self.internal & self.clientsideerror)))
+			if len(self.static - self.content & self.internal & self.serversideerror):
+				logging.info("    5xx Errors: %d",len(self.static - self.content & self.internal & self.serversideerror))
+				print("\033[1;30m    5xx Errors:\033[0m\t\t\033[0;31m{0:4d}\033[0m".format(len(self.static - self.content & self.internal & self.serversideerror)))
+			if len(self.static - self.content & self.internal & self.crossite):
+				logging.info("    Crossprotocol: %d",len(self.static - self.content & self.internal & self.crossprotocol))
+				print("\033[1;30m    Crossprotocol:\033[0m\t\033[0;33m{0:4d}\033[0m".format(len(self.static - self.content & self.internal & self.crossprotocol)))
+
+			if len(self.static - self.content & self.crossite):
+				logging.info("  Crosssite: %d",len(self.static - self.content & self.crossite))
+				print("\033[1;30mStatic Crosssite:\033[0m \033[1;37m{0:0d}\033[0m".format(len(self.static - self.content & self.crossite)))
+			if len(self.static - self.content & self.crossite & self.successful):
+				logging.info("    Successful: %d",len(self.static - self.content & self.crossite & self.successful))
+				print("\033[1;30m    Successful:\033[0m\t\t\033[0;32m{0:4d}\033[0m".format(len(self.static - self.content & self.crossite & self.successful)))
+			if len(self.static - self.content & self.crossite & self.redirected):
+				logging.info("    Redirected: %d",len(self.static - self.content & self.crossite & self.redirected))
+				print("\033[1;30m    Redirected:\033[0m\t\t\033[0;34m{0:4d}\033[0m".format(len(self.static - self.content & self.crossite & self.redirected)))
+			if len(self.static - self.content & self.crossite & self.clientsideerror):
+				logging.info("    4xx Errors: %d",len(self.static - self.content & self.crossite & self.clientsideerror))
+				print("\033[1;30m    4xx Errors:\033[0m\t\t\033[0;33m{0:4d}\033[0m".format(len(self.static - self.content & self.crossite & self.clientsideerror)))
+			if len(self.static - self.content & self.crossite & self.serversideerror):
+				logging.info("    5xx Errors: %d",len(self.static - self.content & self.crossite & self.serversideerror))
+				print("\033[1;30m    5xx Errors:\033[0m\t\t\033[0;31m{0:4d}\033[0m".format(len(self.static - self.content & self.crossite & self.serversideerror)))
+			if len(self.static - self.content & self.crossite & self.crossite):
+				logging.info("    Crossprotocol: %d",len(self.static - self.content & self.crossite & self.crossprotocol))
+				print("\033[1;30m    Crossprotocol:\033[0m\t\033[0;33m{0:4d}\033[0m".format(len(self.static - self.content & self.crossite & self.crossprotocol)))
+
+
+
+				# print("Success: " + str(len(self.successful)))
+				# print("\tInternal: " + str(len(self.successful & self.internal)))
+				# print("\tCrossdomain: " + str(len(self.successful & self.crossite)))
+				# print("\tExternal: " + str(len(self.successful & self.external)))
+				# print("\tUnknown: " + str(len(self.successful - (self.internal | self.crossite | self.external))))
+
+			# if len(self.crossprotocol):
+			# 	logging.info("Mixed content: %d",len(self.crossprotocol & self.content))
+			# 	logging.info("\nInternal: %d",len(self.internal & self.content & self.crossprotocol))
+			# 	print("Mixed content: " + str(len(self.crossprotocol & self.content)))
+			# 	print("\tSuccess: " + str(len(self.internal & self.content & self.crossprotocol)))
+
+			# if len(self.redirected):
+			# 	logging.info("Redirected: %d",len(self.redirected))
+			# 	print("Redirected: " + str(len(self.redirected)))
+
+			# if len(self.clientsideerror):
+			# 	logging.info("Not Found: %d",len(self.clientsideerror))
+			# 	print("4xx Errors: " + str(len(self.clientsideerror)))
+
+			# if len(self.serversideerror):
+			# 	logging.info("5xx Errors: %d",len(self.serversideerror))
+			# 	print("5xx Errors: " + str(len(self.serversideerror)))
+
+			# if len(self.troubled):
+			# 	logging.info("Troubled: %d",len(self.troubled))
+			# 	print("Troubled: " + str(len(self.troubled)))
 			print("\n")
 
 	def chain(self,url,ref,deep):
@@ -615,6 +745,8 @@ class UT(object):
 				elif external:
 					logging.debug("[%s] External link",url)
 					self.external.add(pointer)
+					if set([pointer]).issubset(self.content):
+						self.push(pointer,url,deep+1)
 				else:
 					logging.debug("[%s] Internal crossite link. Adding to queue",url)
 					self.crossite.add(pointer)
