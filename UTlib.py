@@ -575,7 +575,7 @@ class UT(object):
 		logging.debug("[%s] Searching stylesheets",url)
 		for tag in soup.findAll("link"):
 			rel = tag.get('rel')
-			if 'stylesheet' in rel:
+			if rel is not None and 'stylesheet' in rel:
 				pointer = tag.get('href')
 				if pointer:
 					pointer, P = self.prepare_url(pointer,url)
