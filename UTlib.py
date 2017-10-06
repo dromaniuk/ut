@@ -577,42 +577,51 @@ class UT(object):
 
 				descr = []
 				tags = []
-				disp = True
+				disp = False
 
 				if set([url]).issubset(self.internal):
-					disp &= (self.withinternal or self.verbose) and not self.withoutinternal
+					disp |= self.withinternal or self.verbose
 					descr.append('Internal')
 					# tags.append('Intr')
 				elif set([url]).issubset(self.crossite):
-					disp &= (self.withcrossite or self.verbose) and not self.withoutcrossite
-					descr.append('Crossdomain')
+					disp |= self.withcrossite or self.verbose
+					descr.append('Crosssite')
 					tags.append('Cross')
 				elif set([url]).issubset(self.external):
-					disp &= (self.withexternal or self.verbose) and not self.withoutexternal
+					disp |= self.withexternal or self.verbose
 					descr.append('External')
 					tags.append('Extr')
 				else:
-					disp &= (self.withunknown or self.verbose) and not self.withoutunknown
+					disp |= self.withunknown or self.verbose
 					descr.append('Unknown')
 					tags.append('Unknown')
 
 				if set([url]).issubset(self.content):
-					disp &= (self.withcontent or self.verbose) and not self.withoutcontent
+					disp |= self.withcontent or self.verbose
 					descr.append('Content')
 					tags.append('Cont')
 				elif set([url]).issubset(self.static-self.content):
-					disp &= (self.withstatic or self.verbose) and not self.withoutstatic
+					disp |= self.withstatic or self.verbose
 					descr.append('Link')
 					tags.append('Link')
 				else:
-					disp &= (self.withhtml or self.verbose) and not self.withouthtml
+					disp |= self.withhtml or self.verbose
 					descr.append('HTML')
 					# tags.append('HTML')
 
 				if set([url]).issubset(self.crossprotocol & self.content):
-					disp &= (self.withmixedcontent or self.verbose) and not self.withoutmixedcontent
+					disp |= self.withmixedcontent or self.verbose
 					descr.append('Mixed')
 					tags.append('\033[1;31mMixed\033[0m')
+
+				disp &= not self.withoutinternal
+				disp &= not self.withoutcrossite
+				disp &= not self.withoutexternal
+				disp &= not self.withoutunknown
+				disp &= not self.withoutcontent
+				disp &= not self.withoutstatic
+				disp &= not self.withouthtml
+				disp &= not self.withoutmixedcontent
 
 				logging.info("%d\t%s\t|%s|\t%s\t(Ref: %s)",status,reason," ".join(descr),url,ref)
 				if not self.quiet and disp:
